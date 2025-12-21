@@ -2,6 +2,7 @@
 
 import type { AppRouter } from "@/server/api/root";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { httpBatchLink, loggerLink, TRPCClientError } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import React from "react";
@@ -66,6 +67,7 @@ export function TRPCReactProvider({ children }: TRPCReactProviderProps) {
       <api.Provider client={trpcClient} queryClient={queryClient}>
         {children}
       </api.Provider>
+      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
 }
