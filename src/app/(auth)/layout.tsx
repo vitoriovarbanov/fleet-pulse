@@ -5,6 +5,9 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 type AuthLayoutProps = {
   children: ReactNode;
@@ -12,6 +15,50 @@ type AuthLayoutProps = {
 
 export default function AuthLayout({ children }: AuthLayoutProps) {
   const prefersReducedMotion = useReducedMotion();
+  const { isLoaded, isSignedIn } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.replace("/dashboard");
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+  if (!isLoaded || isSignedIn) {
+    return (
+      <div className="dark fixed inset-0 bg-background">
+        <Image
+          src="/auth_background1.webp"
+          alt="Auth pages background"
+          fill
+          priority
+          className="object-cover"
+          quality={90}
+        />
+        <div className="absolute inset-0 bg-background/40" />
+        <div className="relative z-10 flex h-full items-center justify-center">
+          <div className="w-full max-w-md px-4">
+            <div className="glass-card gradient-border relative rounded-2xl p-1">
+              <div className="rounded-xl bg-gradient-to-b from-foreground/[0.02] to-transparent p-4 sm:p-6">
+                <div className="flex flex-col items-center space-y-6 py-8">
+                  <div className="h-20 w-20 animate-pulse rounded-full bg-muted" />
+                  <div className="space-y-2 w-full">
+                    <div className="h-6 w-32 mx-auto animate-pulse rounded bg-muted" />
+                    <div className="h-4 w-48 mx-auto animate-pulse rounded bg-muted" />
+                  </div>
+                  <div className="space-y-4 w-full">
+                    <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
+                    <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
+                    <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dark fixed inset-0 bg-background">

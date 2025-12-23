@@ -35,7 +35,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <UserButton afterSignOutUrl="/" />
+          <UserButton afterSignOutUrl="/sign-in" />
         </div>
       </div>
     </header>

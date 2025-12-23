@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -11,4 +8,294 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  ADMIN
+  DISPATCHER
+  DRIVER
+  FLEET_MANAGER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum DriverStatus {
+  AVAILABLE
+  ON_DUTY
+  OFF_DUTY
+  ON_REST        // EU mandatory rest period
+  SICK_LEAVE
+  VACATION
+}
+
+enum EULicenseCategory {
+  // Truck/Bus categories
+  C1      // Medium trucks (3.5-7.5 tonnes)
+  C1E     // Medium trucks with trailer
+  C       // Heavy trucks (>7.5 tonnes)
+  CE      // Heavy trucks with trailer (articulated lorries)
+
+  // Bus categories
+  D1      // Minibuses (9-16 seats)
+  D1E     // Minibuses with trailer
+  D       // Buses (>16 seats)
+  DE      // Buses with trailer
+}
+
+enum CertificationType {
+  // EU-specific certifications
+  DRIVER_CPC              // Driver Certificate of Professional Competence (EU mandatory)
+  DIGITAL_TACHOGRAPH      // Digital tachograph card
+  ADR                     // Dangerous goods (European Agreement)
+  FORKLIFT
+  FIRST_AID
+  DEFENSIVE_DRIVING
+  ECO_DRIVING             // Fuel-efficient driving
+  TRANSPORT_MANAGER_CPC   // Transport Manager Certificate
+  OTHER
+}
+
+enum TachographCardType {
+  DRIVER_CARD
+  COMPANY_CARD
+  WORKSHOP_CARD
+  CONTROL_CARD
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique // URL-friendly identifier
+
+  // Legal Information
+  registrationNumber String? @unique // Company registration number
+
+  // Contact Information
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  postalCode  String?
+  country     String   @default("DE") // ISO 3166-1 alpha-2
+
+  // Settings
+  locale      String   @default("de-DE")
+  currency    String   @default("EUR")
+  settings    Json?    @default("{}")  // Organization-specific settings
+
+  // Subscription & Limits
+  planType    String   @default("free") // free, basic, premium, enterprise
+
+  // Status
+  isActive    Boolean  @default(true)
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users       User[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("organizations")
+}
+
+model User {
+  id             String     @id @default(cuid())
+  clerkId        String     @unique // Clerk user ID
+
+  // Organization
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Basic Information
+  email          String     @unique
+  firstName      String?
+  lastName       String?
+  avatarUrl      String?    // Profile picture from Clerk or uploaded
+
+  // Contact Information
+  phoneNumber    String?
+
+  // Role & Status
+  role           UserRole
+  status         UserStatus @default(ACTIVE)
+
+  // Employee Information
+  employeeId     String?    @unique // Internal employee ID
+  hireDate       DateTime?
+  terminationDate DateTime?
+
+  // Address
+  address        String?
+  city           String?
+  postalCode     String?
+  country        String     @default("DE") // ISO 3166-1 alpha-2
+
+  // Work Schedule
+  contractType   String?    // "full_time", "part_time", "contractor", "temporary"
+
+  preferences    Json?      @default("{}") // User preferences, notification settings
+
+  // Profile Completeness
+  profileCompletedAt DateTime?
+  lastActiveAt   DateTime?
+
+  // Timestamps
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  // Relations
+  driverProfile     DriverProfile?
+  dispatcherProfile DispatcherProfile?
+
+  @@index([organizationId])
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+model DriverProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // EU Driver License Information
+  licenseNumber   String   @unique
+  licenseCountry  String             // ISO 3166-1 alpha-2 (e.g., "DE", "FR", "PL")
+  licenseIssueDate DateTime
+  licenseExpiryDate DateTime
+
+  // License Categories (multiple categories possible)
+  licenseCategories EULicenseCategory[] // Array of EU categories
+
+  // Medical Certification
+  medicalCertIssueDate DateTime?
+  medicalCertExpiryDate DateTime?      // Frequency depends on age and country
+
+  // Status & Availability
+  driverStatus    DriverStatus @default(OFF_DUTY)
+  isAvailable     Boolean      @default(true)
+
+  // Experience
+  yearsExperience Int?
+
+  // Assigned Vehicle (if any)
+  assignedVehicleId String?   @unique
+
+  // Performance Metrics
+  safetyScore     Decimal?     @db.Decimal(5, 2) // 0-100
+  onTimeDeliveryRate Decimal?  @db.Decimal(5, 2) // 0-100 percentage
+
+  // ADR (Dangerous Goods) if applicable
+  adrCertNumber   String?
+  adrExpiryDate   DateTime?
+
+  // Notes
+  notes           String?      // Internal notes about the driver
+
+  // Timestamps
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  certifications  DriverCertification[]
+
+  @@index([licenseNumber])
+  @@index([driverStatus])
+  @@index([isAvailable])
+  @@index([assignedVehicleId])
+  @@map("driver_profiles")
+}
+
+model DriverCertification {
+  id              String   @id @default(cuid())
+  driverProfileId String
+  driverProfile   DriverProfile @relation(fields: [driverProfileId], references: [id], onDelete: Cascade)
+
+  // Certification Details
+  type            CertificationType
+  name            String   // e.g., "ADR Tank", "CPC Module 2"
+  certificationNumber String?
+  issuingAuthority String? // e.g., "TÜV", "DEKRA", national transport authority
+  issuingCountry  String?  // ISO 3166-1 alpha-2
+
+  // Dates
+  issueDate       DateTime
+  expiryDate      DateTime?
+
+  // Document
+  documentUrl     String?  // S3 or cloud storage URL for certificate scan
+
+  // Status
+  isActive        Boolean  @default(true)
+  isVerified      Boolean  @default(false)
+  verifiedBy      String?  // Admin who verified
+  verifiedAt      DateTime?
+
+  // Notes
+  notes           String?
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([driverProfileId])
+  @@index([type])
+  @@index([expiryDate])
+  @@index([isActive])
+  @@map("driver_certifications")
+}
+
+model DispatcherProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Dispatcher Information
+  badgeNumber     String?  @unique
+  shiftPreference String?  // "morning", "afternoon", "night", "rotating"
+
+  // Specialization
+  specializations String[] @default([]) // e.g., ["international_transport", "local_delivery", "adr_goods"]
+
+  // Coverage Area (European countries/regions)
+  coverageRegions String[] @default([]) // ISO 3166-1 alpha-2 codes or region names
+
+  // Language Skills (important for EU cross-border)
+  languages       String[] @default([]) // ISO 639-1 codes (e.g., ["de", "en", "pl", "fr"])
+
+  // Performance Metrics
+  activeTripsManaged Int   @default(0)
+  totalTripsManaged  Int   @default(0)
+  averageResponseTime Int? // in minutes
+
+  // Certifications
+  certifications  String[] @default([]) // Dispatcher-specific certifications
+
+  // Contact Preferences
+  preferredContactMethod String @default("phone") // "phone", "email", "sms", "teams"
+
+  // Notes
+  notes           String?
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([badgeNumber])
+  @@map("dispatcher_profiles")
 }

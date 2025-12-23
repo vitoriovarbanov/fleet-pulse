@@ -1,5 +1,6 @@
 import { createTRPCRouter } from "./trpc";
 import { healthRouter } from "./routers/health/health.router";
+import { authRouter } from "./routers/auth/auth.router";
 
 /**
  * Primary router for the server
@@ -7,8 +8,8 @@ import { healthRouter } from "./routers/health/health.router";
  */
 export const appRouter = createTRPCRouter({
   health: healthRouter,
+  auth: authRouter,
   // Add feature routers here:
-  // auth: authRouter,
   // vehicles: vehiclesRouter,
 });
 
