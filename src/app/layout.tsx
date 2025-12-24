@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { TRPCReactProvider } from "@/trpc/react";
 import { ThemeProvider } from "@/providers/theme-provider";
+import { SidebarProvider } from "@/providers/sidebar-provider";
 import { Toaster } from "sonner";
 
 const geistSans = Geist({
@@ -38,7 +39,9 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <TRPCReactProvider>{children}</TRPCReactProvider>
+            <TRPCReactProvider>
+              <SidebarProvider>{children}</SidebarProvider>
+            </TRPCReactProvider>
             <Toaster richColors position="top-right" />
           </ThemeProvider>
         </body>

@@ -69,6 +69,19 @@ enum TachographCardType {
   CONTROL_CARD
 }
 
+enum VehicleType {
+  TRUCK
+  TRAILER
+  VAN
+  BUS
+}
+
+enum VehicleStatus {
+  ACTIVE
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -106,6 +119,7 @@ model Organization {
 
   // Relations
   users       User[]
+  vehicles    Vehicle[]
 
   @@index([slug])
   @@index([isActive])
@@ -194,6 +208,7 @@ model DriverProfile {
 
   // Assigned Vehicle (if any)
   assignedVehicleId String?   @unique
+  assignedVehicle   Vehicle?  @relation(fields: [assignedVehicleId], references: [id], onDelete: SetNull)
 
   // Performance Metrics
   safetyScore     Decimal?     @db.Decimal(5, 2) // 0-100
@@ -298,4 +313,38 @@ model DispatcherProfile {
   @@index([userId])
   @@index([badgeNumber])
   @@map("dispatcher_profiles")
+}
+
+model Vehicle {
+  id              String        @id @default(cuid())
+  organizationId  String
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Vehicle Identification
+  plateNumber     String        @unique
+  vin             String?       @unique  // Vehicle Identification Number
+
+  // Vehicle Details
+  make            String                 // e.g., "Mercedes-Benz", "Volvo", "MAN"
+  model           String                 // e.g., "Actros", "FH16"
+  year            Int?
+  type            VehicleType
+
+  // Status
+  status          VehicleStatus @default(ACTIVE)
+
+  // Notes
+  notes           String?
+
+  // Assigned Driver (one-to-one)
+  assignedDriver  DriverProfile?
+
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([type])
+  @@map("vehicles")
 }

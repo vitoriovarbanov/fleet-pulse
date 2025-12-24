@@ -18,7 +18,9 @@ import type { DbUser } from "@/server/api/trpc";
  * @throws Error if user creation fails or required data is missing
  */
 export async function syncUserToDatabase(clerkUserId: string): Promise<DbUser> {
-    // First, try to find existing user
+    console.log(`[Auth Service] syncUserToDatabase called with clerkUserId: ${clerkUserId}`);
+
+    // First, try to find existing user by clerkId
     const existingUser = await db.user.findUnique({
         where: { clerkId: clerkUserId },
         include: {
@@ -29,10 +31,12 @@ export async function syncUserToDatabase(clerkUserId: string): Promise<DbUser> {
     });
 
     if (existingUser) {
+        console.log(`[Auth Service] Found existing user by clerkId: ${existingUser.email}`);
         return existingUser;
     }
+    console.log(`[Auth Service] No user found by clerkId, checking by email...`);
 
-    // User doesn't exist - fetch from Clerk and create in database
+    // User not found by clerkId - fetch from Clerk to get email
     const clerk = await clerkClient();
     const clerkUser = await clerk.users.getUser(clerkUserId);
 
@@ -43,6 +47,36 @@ export async function syncUserToDatabase(clerkUserId: string): Promise<DbUser> {
 
     if (!primaryEmail) {
         throw new Error("No primary email found for Clerk user");
+    }
+
+    // Check if user exists by email (pre-created by admin/seed)
+    console.log(`[Auth Service] Looking for user by email: ${primaryEmail.emailAddress}`);
+    const existingUserByEmail = await db.user.findUnique({
+        where: { email: primaryEmail.emailAddress },
+        include: {
+            organization: true,
+            driverProfile: true,
+            dispatcherProfile: true,
+        },
+    });
+
+    if (existingUserByEmail) {
+        console.log(`[Auth Service] Found user by email! Current clerkId: ${existingUserByEmail.clerkId}, updating to: ${clerkUserId}`);
+        // Link existing user to Clerk account by updating clerkId
+        const linkedUser = await db.user.update({
+            where: { id: existingUserByEmail.id },
+            data: {
+                clerkId: clerkUserId,
+                avatarUrl: clerkUser.imageUrl ?? existingUserByEmail.avatarUrl,
+            },
+            include: {
+                organization: true,
+                driverProfile: true,
+                dispatcherProfile: true,
+            },
+        });
+        console.log(`[Auth Service] Linked existing user ${linkedUser.email} to Clerk ID ${clerkUserId}`);
+        return linkedUser;
     }
 
     // Get or create default organization

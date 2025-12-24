@@ -1,10 +1,10 @@
 import { type ReactNode } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
 
-type DashboardLayoutProps = {
+type DriversLayoutProps = {
     children: ReactNode;
 };
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
+export default function DriversLayout({ children }: DriversLayoutProps) {
     return <AppLayout>{children}</AppLayout>;
 }

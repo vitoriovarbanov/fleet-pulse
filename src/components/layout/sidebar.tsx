@@ -2,40 +2,67 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Truck, MapPin, Settings, X } from "lucide-react";
+import { LayoutDashboard, Truck, MapPin, Settings, X, Users, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { hasRole, type UserRoleType } from "@/lib/roles";
+import { useAuthSync } from "@/providers/auth-sync-provider";
 import { Button } from "@/components/ui/button";
 
-interface SidebarProps {
+type NavItem = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  /** If undefined, visible to all authenticated users */
+  roles?: UserRoleType[];
+};
+
+type SidebarProps = {
   isOpen?: boolean;
   onClose?: () => void;
-}
+};
 
-const navItems = [
+const navItems: NavItem[] = [
   {
     label: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+    // Visible to all
+  },
+  {
+    label: "Drivers",
+    href: "/drivers",
+    icon: Users,
+    roles: ["ADMIN", "FLEET_MANAGER", "DISPATCHER"],
   },
   {
     label: "Vehicles",
     href: "/dashboard/vehicles",
     icon: Truck,
+    // Visible to all
   },
   {
     label: "Tracking",
     href: "/dashboard/tracking",
     icon: MapPin,
+    roles: ["ADMIN", "FLEET_MANAGER", "DISPATCHER"],
   },
   {
     label: "Settings",
     href: "/dashboard/settings",
     icon: Settings,
+    roles: ["ADMIN", "FLEET_MANAGER"],
   },
 ];
 
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { user } = useAuthSync();
+
+  // Filter nav items based on user role
+  const visibleNavItems = navItems.filter((item) => {
+    if (!item.roles) return true; // No restriction = visible to all
+    return user && hasRole(user.role, item.roles);
+  });
 
   return (
     <>
@@ -65,7 +92,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-4">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
 
