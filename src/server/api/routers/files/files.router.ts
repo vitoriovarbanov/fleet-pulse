@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { createTRPCRouter, protectedProcedure, protectedRateLimitedProcedure } from "@/server/api/trpc";
+import { RateLimits } from "@/server/api/common/middlewares/rate-limit.middleware";
 import { TRPCError } from "@trpc/server";
 import {
     generateFileKey,
@@ -19,8 +20,9 @@ const fileCategorySchema = z.enum(["avatars", "vehicles", "documents", "certific
 export const filesRouter = createTRPCRouter({
     /**
      * Get a presigned URL for uploading a file
+     * Rate limited: 20 per hour
      */
-    getUploadUrl: protectedProcedure
+    getUploadUrl: protectedRateLimitedProcedure(RateLimits.FILE_UPLOAD)
         .input(
             z.object({
                 category: fileCategorySchema,
@@ -31,7 +33,10 @@ export const filesRouter = createTRPCRouter({
             })
         )
         .mutation(async ({ ctx, input }) => {
+            const log = ctx.logger.child("FilesRouter");
+
             if (!isStorageConfigured()) {
+                log.warn("Storage not configured");
                 throw new TRPCError({
                     code: "PRECONDITION_FAILED",
                     message: "File storage is not configured",
@@ -43,6 +48,7 @@ export const filesRouter = createTRPCRouter({
             // Validate file type and size
             const validation = validateFile(category as FileCategory, contentType, size);
             if (!validation.valid) {
+                log.warn("File validation failed", { category, contentType, size });
                 throw new TRPCError({
                     code: "BAD_REQUEST",
                     message: validation.error,
@@ -51,6 +57,7 @@ export const filesRouter = createTRPCRouter({
 
             // For avatars, entityId should be the user's own ID
             if (category === "avatars" && entityId !== ctx.user.id) {
+                log.warn("Avatar upload forbidden - wrong user");
                 throw new TRPCError({
                     code: "FORBIDDEN",
                     message: "You can only upload your own avatar",
@@ -62,6 +69,8 @@ export const filesRouter = createTRPCRouter({
 
             // Get presigned upload URL
             const uploadUrl = await getUploadUrl(key, contentType);
+
+            log.info("Upload URL generated", { category, entityId });
 
             return {
                 uploadUrl,
@@ -80,7 +89,10 @@ export const filesRouter = createTRPCRouter({
             })
         )
         .query(async ({ ctx, input }) => {
+            const log = ctx.logger.child("FilesRouter");
+
             if (!isStorageConfigured()) {
+                log.warn("Storage not configured");
                 throw new TRPCError({
                     code: "PRECONDITION_FAILED",
                     message: "File storage is not configured",
@@ -91,6 +103,7 @@ export const filesRouter = createTRPCRouter({
 
             // Validate the key belongs to user's organization
             if (!key.startsWith(ctx.organizationId + "/")) {
+                log.warn("Download access denied - wrong organization");
                 throw new TRPCError({
                     code: "FORBIDDEN",
                     message: "Access denied",
@@ -98,6 +111,8 @@ export const filesRouter = createTRPCRouter({
             }
 
             const downloadUrl = await getDownloadUrl(key);
+
+            log.debug("Download URL generated");
 
             return {
                 downloadUrl,
@@ -116,10 +131,12 @@ export const filesRouter = createTRPCRouter({
             })
         )
         .mutation(async ({ ctx, input }) => {
+            const log = ctx.logger.child("FilesRouter");
             const { key } = input;
 
             // Validate the key belongs to user's organization and is an avatar
             if (!key.startsWith(`${ctx.organizationId}/avatars/${ctx.user.id}/`)) {
+                log.warn("Avatar confirmation forbidden - invalid key");
                 throw new TRPCError({
                     code: "FORBIDDEN",
                     message: "Invalid avatar key",
@@ -131,8 +148,9 @@ export const filesRouter = createTRPCRouter({
             if (currentAvatarUrl && currentAvatarUrl.startsWith(`${ctx.organizationId}/`)) {
                 try {
                     await deleteFile(currentAvatarUrl);
+                    log.info("Old avatar deleted");
                 } catch {
-                    // Ignore errors deleting old file
+                    log.warn("Failed to delete old avatar");
                 }
             }
 
@@ -141,6 +159,8 @@ export const filesRouter = createTRPCRouter({
                 where: { id: ctx.user.id },
                 data: { avatarUrl: key },
             });
+
+            log.info("Avatar updated", { userId: updatedUser.id });
 
             return {
                 success: true,
@@ -162,7 +182,10 @@ export const filesRouter = createTRPCRouter({
             })
         )
         .mutation(async ({ ctx, input }) => {
+            const log = ctx.logger.child("FilesRouter");
+
             if (!isStorageConfigured()) {
+                log.warn("Storage not configured");
                 throw new TRPCError({
                     code: "PRECONDITION_FAILED",
                     message: "File storage is not configured",
@@ -173,6 +196,7 @@ export const filesRouter = createTRPCRouter({
 
             // Validate the key belongs to user's organization
             if (!key.startsWith(ctx.organizationId + "/")) {
+                log.warn("Delete access denied - wrong organization");
                 throw new TRPCError({
                     code: "FORBIDDEN",
                     message: "Access denied",
@@ -181,13 +205,17 @@ export const filesRouter = createTRPCRouter({
 
             await deleteFile(key);
 
+            log.info("File deleted");
+
             return { success: true };
         }),
 
     /**
      * Get storage configuration status and limits
      */
-    getConfig: protectedProcedure.query(() => {
+    getConfig: protectedProcedure.query(({ ctx }) => {
+        ctx.logger.child("FilesRouter").debug("Config requested");
+
         return {
             configured: isStorageConfigured(),
             limits: {

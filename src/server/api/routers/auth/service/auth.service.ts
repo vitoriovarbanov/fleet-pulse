@@ -2,6 +2,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/server/database";
 import { UserRole, UserStatus } from "@/generated/prisma/client";
 import type { DbUser } from "@/server/api/trpc";
+import { Logger } from "@/server/api/common/logger";
 
 /**
  * Auth Service
@@ -14,11 +15,14 @@ import type { DbUser } from "@/server/api/trpc";
  * Creates the user if they don't exist, returns existing user if they do
  *
  * @param clerkUserId - The Clerk user ID to sync
+ * @param logger - Optional logger instance for request tracing
  * @returns The database user with organization and profile relations
  * @throws Error if user creation fails or required data is missing
  */
-export async function syncUserToDatabase(clerkUserId: string): Promise<DbUser> {
-    console.log(`[Auth Service] syncUserToDatabase called with clerkUserId: ${clerkUserId}`);
+export async function syncUserToDatabase(clerkUserId: string, logger?: Logger): Promise<DbUser> {
+    const log = logger?.child("AuthService") ?? new Logger("AuthService");
+
+    log.debug("syncUserToDatabase called");
 
     // First, try to find existing user by clerkId
     const existingUser = await db.user.findUnique({
@@ -31,10 +35,11 @@ export async function syncUserToDatabase(clerkUserId: string): Promise<DbUser> {
     });
 
     if (existingUser) {
-        console.log(`[Auth Service] Found existing user by clerkId: ${existingUser.email}`);
+        log.debug("Found existing user by clerkId", { userId: existingUser.id });
         return existingUser;
     }
-    console.log(`[Auth Service] No user found by clerkId, checking by email...`);
+
+    log.debug("No user found by clerkId, checking by email");
 
     // User not found by clerkId - fetch from Clerk to get email
     const clerk = await clerkClient();
@@ -46,11 +51,13 @@ export async function syncUserToDatabase(clerkUserId: string): Promise<DbUser> {
     );
 
     if (!primaryEmail) {
+        log.error("No primary email found for Clerk user");
         throw new Error("No primary email found for Clerk user");
     }
 
+    log.debug("Looking for user by email");
+
     // Check if user exists by email (pre-created by admin/seed)
-    console.log(`[Auth Service] Looking for user by email: ${primaryEmail.emailAddress}`);
     const existingUserByEmail = await db.user.findUnique({
         where: { email: primaryEmail.emailAddress },
         include: {
@@ -61,7 +68,10 @@ export async function syncUserToDatabase(clerkUserId: string): Promise<DbUser> {
     });
 
     if (existingUserByEmail) {
-        console.log(`[Auth Service] Found user by email! Current clerkId: ${existingUserByEmail.clerkId}, updating to: ${clerkUserId}`);
+        log.info("Linking existing user to Clerk account", {
+            userId: existingUserByEmail.id,
+        });
+
         // Link existing user to Clerk account by updating clerkId
         const linkedUser = await db.user.update({
             where: { id: existingUserByEmail.id },
@@ -75,7 +85,8 @@ export async function syncUserToDatabase(clerkUserId: string): Promise<DbUser> {
                 dispatcherProfile: true,
             },
         });
-        console.log(`[Auth Service] Linked existing user ${linkedUser.email} to Clerk ID ${clerkUserId}`);
+
+        log.info("User linked successfully", { userId: linkedUser.id });
         return linkedUser;
     }
 
@@ -85,6 +96,8 @@ export async function syncUserToDatabase(clerkUserId: string): Promise<DbUser> {
     });
 
     if (!organization) {
+        log.info("Creating default organization");
+
         // Auto-create default organization if it doesn't exist
         organization = await db.organization.create({
             data: {
@@ -98,7 +111,8 @@ export async function syncUserToDatabase(clerkUserId: string): Promise<DbUser> {
                 isActive: true,
             },
         });
-        console.log(`[Auth Service] Created default organization: ${organization.id}`);
+
+        log.info("Default organization created", { orgId: organization.id });
     }
 
     // Check if this is the first user - make them admin
@@ -106,6 +120,11 @@ export async function syncUserToDatabase(clerkUserId: string): Promise<DbUser> {
         where: { organizationId: organization.id },
     });
     const isFirstUser = existingUsersCount === 0;
+
+    log.info("Creating new user", {
+        isFirstUser,
+        role: isFirstUser ? "ADMIN" : "DRIVER",
+    });
 
     // Create user in database
     const newUser = await db.user.create({
@@ -126,7 +145,11 @@ export async function syncUserToDatabase(clerkUserId: string): Promise<DbUser> {
         },
     });
 
-    console.log(`[Auth Service] Created user: ${newUser.email} with role ${newUser.role} (first user: ${isFirstUser})`);
+    log.info("User created successfully", {
+        userId: newUser.id,
+        role: newUser.role,
+    });
+
     return newUser;
 }
 
@@ -153,9 +176,15 @@ export async function getCurrentUser(clerkUserId: string): Promise<DbUser | null
  * Used when Clerk data changes (via webhook or manual refresh)
  *
  * @param clerkUserId - The Clerk user ID
+ * @param logger - Optional logger instance for request tracing
  * @returns The updated database user
  */
-export async function refreshUserFromClerk(clerkUserId: string): Promise<DbUser | null> {
+export async function refreshUserFromClerk(
+    clerkUserId: string,
+    logger?: Logger
+): Promise<DbUser | null> {
+    const log = logger?.child("AuthService") ?? new Logger("AuthService");
+
     const clerk = await clerkClient();
     const clerkUser = await clerk.users.getUser(clerkUserId);
 
@@ -164,8 +193,11 @@ export async function refreshUserFromClerk(clerkUserId: string): Promise<DbUser 
     );
 
     if (!primaryEmail) {
+        log.error("No primary email found for Clerk user");
         throw new Error("No primary email found for Clerk user");
     }
+
+    log.info("Refreshing user from Clerk");
 
     const updatedUser = await db.user.update({
         where: { clerkId: clerkUserId },
@@ -181,6 +213,8 @@ export async function refreshUserFromClerk(clerkUserId: string): Promise<DbUser 
             dispatcherProfile: true,
         },
     });
+
+    log.info("User refreshed successfully", { userId: updatedUser.id });
 
     return updatedUser;
 }
