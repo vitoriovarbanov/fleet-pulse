@@ -333,6 +333,9 @@ model Vehicle {
   // Status
   status          VehicleStatus @default(ACTIVE)
 
+  // Image (R2 storage key)
+  imageKey        String?                // Storage key for vehicle image
+
   // Notes
   notes           String?
 

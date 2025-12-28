@@ -36,9 +36,9 @@ const navItems: NavItem[] = [
   },
   {
     label: "Vehicles",
-    href: "/dashboard/vehicles",
+    href: "/vehicles",
     icon: Truck,
-    // Visible to all
+    roles: ["ADMIN", "FLEET_MANAGER", "DISPATCHER"],
   },
   {
     label: "Tracking",

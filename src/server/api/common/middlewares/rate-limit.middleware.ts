@@ -154,6 +154,14 @@ export const RateLimits = {
         identifier: "drivers:create",
     },
 
+    /** Vehicle creation: 10 per hour */
+    VEHICLE_CREATE: {
+        max: 10,
+        window: 1,
+        windowType: "hours" as const,
+        identifier: "vehicles:create",
+    },
+
     /** File uploads: 20 per hour */
     FILE_UPLOAD: {
         max: 20,

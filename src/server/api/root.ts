@@ -3,6 +3,7 @@ import { healthRouter } from "./routers/health/health.router";
 import { authRouter } from "./routers/auth/auth.router";
 import { driversRouter } from "./routers/drivers/drivers.router";
 import { filesRouter } from "./routers/files/files.router";
+import { vehiclesRouter } from "./routers/vehicles/vehicles.router";
 
 /**
  * Primary router for the server
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
   auth: authRouter,
   drivers: driversRouter,
   files: filesRouter,
+  vehicles: vehiclesRouter,
 });
 
 /**
