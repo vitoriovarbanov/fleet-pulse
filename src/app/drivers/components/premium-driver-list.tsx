@@ -13,7 +13,10 @@ import { DriversSearchBar } from "./drivers-search-bar";
 import { PremiumDriverCard } from "./premium-driver-card";
 import { DriverDetailPanel } from "./driver-detail-panel";
 import { DriversEmptyState } from "./drivers-empty-state";
-import { DriversLoadingSkeleton, DriverCardSkeleton } from "./drivers-loading-skeleton";
+import { DriversLoadingSkeleton } from "./drivers-loading-skeleton";
+import { CreateDriverDialog } from "./forms/create-driver-dialog";
+import { EditDriverDialog } from "./forms/edit-driver-dialog";
+
 
 import type { DriverCard as DriverCardType } from "@/server/api/routers/drivers/repository/drivers.repository.types";
 
@@ -30,6 +33,11 @@ export function PremiumDriverList() {
   const [statusFilter, setStatusFilter] = useState<DriverStatus | null>(null);
   const [availabilityFilter, setAvailabilityFilter] = useState<boolean | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+
+  // Dialog states
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
 
   const { data, isLoading, isError, error, refetch, isFetching } =
     api.drivers.list.useQuery(
@@ -90,6 +98,24 @@ export function PremiumDriverList() {
     setAvailabilityFilter(null);
   };
 
+  const handleAddDriver = () => {
+    setCreateDialogOpen(true);
+  };
+
+  const handleEditDriver = (driverId: string) => {
+    setEditingDriverId(driverId);
+    setEditDialogOpen(true);
+    // Close the detail panel when opening edit dialog
+    setSelectedDriverId(null);
+  };
+
+  const handleEditDialogClose = (open: boolean) => {
+    setEditDialogOpen(open);
+    if (!open) {
+      setEditingDriverId(null);
+    }
+  };
+
   const isSearching = search.length > 0 || statusFilter !== null || availabilityFilter !== null;
 
   // Full page loading state
@@ -123,15 +149,7 @@ export function PremiumDriverList() {
       <DriversPageHeader
         totalDrivers={stats.total}
         availableDrivers={stats.available}
-        onAddDriver={() => {
-          // TODO: Open add driver modal
-        }}
-        onExport={() => {
-          // TODO: Export functionality
-        }}
-        onFilter={() => {
-          // TODO: Advanced filters modal
-        }}
+        onAddDriver={handleAddDriver}
       />
 
       {/* Stats Cards */}
@@ -207,9 +225,7 @@ export function PremiumDriverList() {
         <DriversEmptyState
           isSearching={isSearching}
           searchQuery={search}
-          onAddDriver={() => {
-            // TODO: Open add driver modal
-          }}
+          onAddDriver={handleAddDriver}
           onClearSearch={handleClearSearch}
         />
       ) : (
@@ -236,6 +252,20 @@ export function PremiumDriverList() {
         open={!!selectedDriverId}
         onClose={handleClosePanel}
         onUpdate={handleRefresh}
+        onEdit={() => selectedDriverId && handleEditDriver(selectedDriverId)}
+      />
+
+      {/* Create Driver Dialog */}
+      <CreateDriverDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+      />
+
+      {/* Edit Driver Dialog */}
+      <EditDriverDialog
+        driverId={editingDriverId}
+        open={editDialogOpen}
+        onOpenChange={handleEditDialogClose}
       />
     </div>
   );

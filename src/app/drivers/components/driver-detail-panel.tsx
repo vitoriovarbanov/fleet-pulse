@@ -33,6 +33,7 @@ type DriverDetailPanelProps = {
   open: boolean;
   onClose: () => void;
   onUpdate: () => void;
+  onEdit?: () => void;
 };
 
 export function DriverDetailPanel({
@@ -40,6 +41,7 @@ export function DriverDetailPanel({
   open,
   onClose,
   onUpdate,
+  onEdit,
 }: DriverDetailPanelProps) {
   // Lock body scroll when panel is open to prevent duplicate scrollbars
   useLockBodyScroll(open);
@@ -378,6 +380,7 @@ export function DriverDetailPanel({
                     <Button
                       variant="outline"
                       className="rounded-xl"
+                      onClick={onEdit}
                     >
                       <Pencil className="h-4 w-4 mr-2" />
                       Edit

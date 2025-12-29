@@ -91,7 +91,6 @@
 .dark {
   /* Dark Mode - Premium operations center feel */
 
-  /* Deep navy background with subtle blue undertone */
   --background: oklch(0.13 0.02 250);
   --foreground: oklch(0.92 0.01 240);
 

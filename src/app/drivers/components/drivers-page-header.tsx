@@ -1,24 +1,20 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Plus, Download, Filter, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
+import { Plus } from 'lucide-react';
 
 type DriversPageHeaderProps = {
     totalDrivers?: number;
     availableDrivers?: number;
     onAddDriver?: () => void;
-    onExport?: () => void;
-    onFilter?: () => void;
 };
 
 export function DriversPageHeader({
     totalDrivers = 0,
     availableDrivers = 0,
     onAddDriver,
-    onExport,
-    onFilter,
 }: DriversPageHeaderProps) {
     return (
         <motion.div
@@ -55,34 +51,12 @@ export function DriversPageHeader({
                         </motion.p>
                     </div>
 
-                    {/* Actions */}
                     <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.3, duration: 0.4 }}
                         className="flex flex-wrap items-center gap-2"
                     >
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={onFilter}
-                            className="group relative overflow-hidden border-border/50 hover:border-primary/50 transition-colors"
-                        >
-                            <span className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-                            <Filter className="h-4 w-4 mr-2" />
-                            Filters
-                        </Button>
-
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={onExport}
-                            className="group relative overflow-hidden border-border/50 hover:border-primary/50 transition-colors"
-                        >
-                            <span className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-                            <Download className="h-4 w-4 mr-2" />
-                            Export
-                        </Button>
 
                         <Button
                             size="sm"
@@ -96,7 +70,6 @@ export function DriversPageHeader({
                     </motion.div>
                 </div>
 
-                {/* Quick stats bar */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}

@@ -85,10 +85,8 @@ export function PremiumDriverCard({ driver, onClick, index = 0 }: PremiumDriverC
             <div className="absolute -inset-px rounded-2xl bg-gradient-to-br from-primary/20 via-transparent to-secondary/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl pointer-events-none" />
 
             <div className="relative z-10">
-                {/* Header */}
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                        {/* Avatar */}
                         <div className="relative">
                             {driver.avatarUrl ? (
                                 <motion.img
@@ -105,7 +103,6 @@ export function PremiumDriverCard({ driver, onClick, index = 0 }: PremiumDriverC
                                     {initials}
                                 </motion.div>
                             )}
-                            {/* Online indicator */}
                             {profile?.isAvailable && (
                                 <motion.div
                                     initial={{ scale: 0 }}
@@ -117,7 +114,6 @@ export function PremiumDriverCard({ driver, onClick, index = 0 }: PremiumDriverC
                             )}
                         </div>
 
-                        {/* Name & Email */}
                         <div className="min-w-0 flex-1">
                             <h3 className="font-semibold text-sm sm:text-base truncate group-hover:text-primary transition-colors duration-200">
                                 {fullName}
