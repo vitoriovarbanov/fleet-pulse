@@ -1,5 +1,5 @@
 import { AnimatedPage } from "@/components/animated/animated-page";
-import { VehicleList } from "@/components/features/vehicles/vehicle-list";
+import { VehicleList } from "@/app/vehicles/components/vehicle-list";
 
 export const metadata = {
   title: "Vehicles | Fleet Pulse",
