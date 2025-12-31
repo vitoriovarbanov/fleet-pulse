@@ -84,7 +84,7 @@ function SearchBarSkeleton() {
   );
 }
 
-function DriversGridSkeleton() {
+export function DriversGridSkeleton() {
   return (
     <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
       {[1, 2, 3, 4, 5, 6].map((i) => (

@@ -265,6 +265,65 @@ body {
   }
 }
 
+/* Premium button shimmer effect */
+@keyframes button-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-\[shimmer_2s_infinite\] {
+  animation: button-shimmer 2s infinite;
+}
+
+/* Premium form focus glow animation */
+@keyframes focus-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 oklch(0.62 0.18 250 / 0);
+  }
+  50% {
+    box-shadow: 0 0 20px 2px oklch(0.62 0.18 250 / 0.15);
+  }
+}
+
+/* Premium step indicator pulse */
+@keyframes step-pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(1.2);
+  }
+}
+
+/* Premium dialog entrance */
+@keyframes dialog-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Premium input focus ring */
+.premium-focus-ring {
+  transition: box-shadow 0.2s ease-out;
+}
+
+.premium-focus-ring:focus-within {
+  box-shadow:
+    0 0 0 2px oklch(0.62 0.18 250 / 0.2),
+    0 0 20px oklch(0.62 0.18 250 / 0.1);
+}
+
 /* Glass morphism card effect - refined for fleet dashboard */
 .glass-card {
   background: linear-gradient(

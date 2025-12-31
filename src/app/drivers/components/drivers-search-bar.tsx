@@ -90,7 +90,6 @@ export function DriversSearchBar({
       transition={{ delay: 0.2, duration: 0.4 }}
       className="flex flex-col gap-3 sm:flex-row sm:items-center"
     >
-      {/* Search input */}
       <div className="relative flex-1 min-w-0 max-w-md">
         <motion.div
           animate={{
