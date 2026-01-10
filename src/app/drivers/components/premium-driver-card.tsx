@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Phone, Truck, Shield, Clock, ChevronRight, Zap, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { R2Avatar } from '@/components/shared/r2-avatar';
 import type { DriverCard as DriverCardType } from '@/server/api/routers/drivers/repository/drivers.repository.types';
 
 type PremiumDriverCardProps = {
@@ -88,21 +89,14 @@ export function PremiumDriverCard({ driver, onClick, index = 0 }: PremiumDriverC
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
                         <div className="relative">
-                            {driver.avatarUrl ? (
-                                <motion.img
-                                    src={driver.avatarUrl}
+                            <motion.div whileHover={{ scale: 1.05 }}>
+                                <R2Avatar
+                                    avatarKey={driver.avatarUrl}
+                                    fallback={initials}
                                     alt={fullName}
-                                    className="h-12 w-12 rounded-xl object-cover ring-2 ring-border/50 group-hover:ring-primary/30 transition-all duration-300"
-                                    whileHover={{ scale: 1.05 }}
+                                    className="h-12 w-12 ring-2 ring-border/50 group-hover:ring-primary/30 transition-all duration-300"
                                 />
-                            ) : (
-                                <motion.div
-                                    className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 text-primary font-semibold ring-2 ring-border/50 group-hover:ring-primary/30 transition-all duration-300"
-                                    whileHover={{ scale: 1.05 }}
-                                >
-                                    {initials}
-                                </motion.div>
-                            )}
+                            </motion.div>
                             {profile?.isAvailable && (
                                 <motion.div
                                     initial={{ scale: 0 }}

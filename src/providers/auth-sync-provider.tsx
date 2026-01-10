@@ -49,8 +49,8 @@ type AuthSyncProviderProps = {
 export function AuthSyncProvider({ children }: AuthSyncProviderProps) {
     const { data: user, isLoading, isError, error } = api.auth.me.useQuery(undefined, {
         retry: false,
-        staleTime: 5 * 60 * 1000, // 5 minutes
-        refetchOnWindowFocus: false,
+        staleTime: 30 * 1000, // 30 seconds - reduced from 5 minutes for security
+        refetchOnWindowFocus: true, // Re-fetch when user returns to tab
     });
 
     return (

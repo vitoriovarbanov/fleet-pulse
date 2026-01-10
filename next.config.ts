@@ -4,7 +4,8 @@ import type { NextConfig } from 'next';
 import './src/env';
 
 const nextConfig: NextConfig = {
-    // Removed output: 'export' to enable API routes for tRPC
+    // Enable standalone output for Docker deployment
+    output: 'standalone',
 
     // Prevent 307 redirects for webhooks (trailing slash issues)
     skipTrailingSlashRedirect: true,

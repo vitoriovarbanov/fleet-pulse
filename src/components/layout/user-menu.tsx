@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { useClerk } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -26,7 +25,6 @@ import { LogOut, User, Upload, Loader2, Camera } from "lucide-react";
 
 export function UserMenu() {
     const { signOut } = useClerk();
-    const router = useRouter();
     const { user, isLoading: isUserLoading } = useAuthSync();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -69,8 +67,12 @@ export function UserMenu() {
     };
 
     const handleSignOut = async () => {
-        await signOut();
-        router.push("/sign-in");
+        // CRITICAL: Clear all cached data before signing out
+        // This prevents the next user from seeing stale data
+        await utils.invalidate();
+
+        // Use Clerk's built-in redirect to avoid flash of landing page
+        await signOut({ redirectUrl: "/sign-in" });
     };
 
     const handleAvatarClick = () => {
@@ -147,7 +149,7 @@ export function UserMenu() {
         <>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full cursor-pointer">
                         <Avatar className="h-8 w-8">
                             <AvatarImage src={getAvatarUrl()} alt={user.firstName ?? "User"} />
                             <AvatarFallback className="bg-primary text-primary-foreground text-xs">
