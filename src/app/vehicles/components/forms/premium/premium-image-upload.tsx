@@ -42,6 +42,7 @@ export function PremiumImageUpload({
   );
 
   const getUploadUrl = api.files.getUploadUrl.useMutation();
+  const deleteFile = api.files.delete.useMutation();
 
   const currentImageUrl = value
     ? value.startsWith("http")
@@ -68,6 +69,9 @@ export function PremiumImageUpload({
 
     setIsUploading(true);
     setUploadProgress(0);
+
+    // Store old key to delete after successful upload
+    const oldImageKey = value && !value.startsWith("http") ? value : null;
 
     try {
       // Create preview
@@ -104,6 +108,18 @@ export function PremiumImageUpload({
       // Set the key in form
       onChange(key);
       setUploadProgress(100);
+
+      // Delete old image from R2 (fire and forget)
+      if (oldImageKey) {
+        deleteFile.mutate(
+          { key: oldImageKey },
+          {
+            onError: (err) => {
+              console.warn("Failed to delete old image:", err);
+            },
+          }
+        );
+      }
 
       toast.success("Image uploaded successfully");
 
@@ -157,6 +173,17 @@ export function PremiumImageUpload({
   };
 
   const handleRemove = () => {
+    // Delete from R2 if it's an R2 key (fire and forget)
+    if (value && !value.startsWith("http")) {
+      deleteFile.mutate(
+        { key: value },
+        {
+          onError: (err) => {
+            console.warn("Failed to delete image:", err);
+          },
+        }
+      );
+    }
     onChange(null);
     setPreviewUrl(null);
   };
@@ -189,7 +216,7 @@ export function PremiumImageUpload({
                 <img
                   src={currentImageUrl}
                   alt="Vehicle preview"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">

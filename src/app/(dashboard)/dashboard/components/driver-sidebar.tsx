@@ -84,7 +84,7 @@ export function DriverSidebar({
     <div
       className={cn(
         'flex flex-col h-full bg-background border-r border-border',
-        'w-full md:w-80 lg:w-96',
+        'w-full md:w-60 lg:w-80',
         className
       )}
     >

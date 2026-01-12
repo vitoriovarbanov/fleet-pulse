@@ -311,7 +311,7 @@ export function CompactVehicleImage({
         initial={{ opacity: 0 }}
         animate={{ opacity: isImageLoaded ? 1 : 0 }}
         transition={{ duration: 0.4 }}
-        className="absolute inset-0 h-full w-full object-cover"
+        className="absolute inset-0 h-full w-full object-contain"
         onLoad={() => setIsImageLoaded(true)}
         onError={() => setImageError(true)}
       />

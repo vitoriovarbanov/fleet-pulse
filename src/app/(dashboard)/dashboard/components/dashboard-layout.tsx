@@ -12,7 +12,7 @@ export function DashboardLayout({ children, className }: DashboardLayoutProps) {
   return (
     <div
       className={cn(
-        'flex h-[calc(100vh-4rem)] w-full overflow-hidden',
+        'flex h-[calc(100vh-9rem)] w-full overflow-hidden gap-3',
         // Account for header height and any padding
         'relative',
         className

@@ -58,20 +58,20 @@ const navItems: NavItem[] = [
     description: "Fleet inventory",
     roles: ["ADMIN", "FLEET_MANAGER", "DISPATCHER"],
   },
-  {
-    label: "Tracking",
-    href: "/dashboard/tracking",
-    icon: MapPin,
-    description: "Real-time location",
-    roles: ["ADMIN", "FLEET_MANAGER", "DISPATCHER"],
-  },
-  {
-    label: "Settings",
-    href: "/dashboard/settings",
-    icon: Settings,
-    description: "Configuration",
-    roles: ["ADMIN", "FLEET_MANAGER"],
-  },
+  // {
+  //   label: "Tracking",
+  //   href: "/dashboard/tracking",
+  //   icon: MapPin,
+  //   description: "Real-time location",
+  //   roles: ["ADMIN", "FLEET_MANAGER", "DISPATCHER"],
+  // },
+  // {
+  //   label: "Settings",
+  //   href: "/dashboard/settings",
+  //   icon: Settings,
+  //   description: "Configuration",
+  //   roles: ["ADMIN", "FLEET_MANAGER"],
+  // },
 ];
 
 function NavLink({

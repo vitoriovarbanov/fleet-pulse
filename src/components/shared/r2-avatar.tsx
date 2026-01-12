@@ -37,22 +37,35 @@ export function R2Avatar({
         setImageError(false);
     }, [avatarKey]);
 
-    // Determine if we need to fetch a presigned URL
-    const isR2Key = avatarKey && !avatarKey.startsWith('http');
+    // Check if avatarKey is a direct URL (starts with http)
+    const isDirectUrl = avatarKey?.startsWith('http');
+
+    // Check if avatarKey is a valid R2 key
+    // Valid R2 keys look like: "orgId/category/entityId/filename.ext"
+    // Must have at least one "/" and be longer than a typical org ID
+    const isR2Key = avatarKey &&
+        !isDirectUrl &&
+        avatarKey.includes('/') &&
+        avatarKey.length > 20;
 
     // Fetch presigned URL for R2 keys
+    // Cache for 50 minutes (presigned URLs expire in 1 hour, Redis caches for 55 min)
     const { data: downloadData, isLoading } = api.files.getDownloadUrl.useQuery(
         { key: avatarKey! },
         {
             enabled: !!isR2Key && !imageError,
-            staleTime: 500 * 60 * 1000,
-            gcTime: 55 * 60 * 1000,
+            staleTime: 50 * 60 * 1000, // 50 minutes
+            gcTime: 55 * 60 * 1000, // 55 minutes
             retry: 1,
+            refetchOnWindowFocus: false,
+            refetchOnMount: false,
+            refetchOnReconnect: false,
         }
     );
 
     // Determine the final image URL
-    const imageUrl = isR2Key ? downloadData?.downloadUrl : avatarKey;
+    // Only use avatarKey directly if it's a valid URL, otherwise use presigned URL from R2
+    const imageUrl = isDirectUrl ? avatarKey : (isR2Key ? downloadData?.downloadUrl : null);
 
     // Show fallback if no avatar, loading, or error
     if (!imageUrl || imageError || (isR2Key && isLoading && !downloadData)) {
