@@ -53,6 +53,15 @@ export const vehiclesRouter = createTRPCRouter({
     }),
 
     /**
+     * List vehicles with location data for map display
+     * Used by the live fleet map dashboard
+     */
+    listWithLocation: adminProcedure.query(async ({ ctx }) => {
+        const isAdmin = ctx.user.role === 'ADMIN';
+        return service.listVehiclesWithLocation(ctx.organizationId, isAdmin, ctx.logger);
+    }),
+
+    /**
      * Create a new vehicle
      * Rate limited: 10 per hour
      */

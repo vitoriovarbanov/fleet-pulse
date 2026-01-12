@@ -84,3 +84,42 @@ export type VehicleCard = Prisma.VehicleGetPayload<{
 export type VehicleDetail = Prisma.VehicleGetPayload<{
   select: typeof vehicleDetailSelect;
 }>;
+
+/**
+ * Prisma select for map/dashboard view (vehicles with location and driver info)
+ */
+export const vehicleWithLocationSelect = {
+  id: true,
+  plateNumber: true,
+  make: true,
+  model: true,
+  type: true,
+  status: true,
+  imageKey: true,
+  latitude: true,
+  longitude: true,
+  lastLocationUpdate: true,
+  assignedDriver: {
+    select: {
+      id: true,
+      driverStatus: true,
+      isAvailable: true,
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+          phoneNumber: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.VehicleSelect;
+
+/**
+ * Inferred type for vehicle with location (map view)
+ */
+export type VehicleWithLocation = Prisma.VehicleGetPayload<{
+  select: typeof vehicleWithLocationSelect;
+}>;

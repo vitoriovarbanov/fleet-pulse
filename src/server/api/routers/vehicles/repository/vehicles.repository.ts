@@ -3,8 +3,10 @@ import type { Prisma } from '@/generated/prisma/client';
 import {
     vehicleCardSelect,
     vehicleDetailSelect,
+    vehicleWithLocationSelect,
     type VehicleCard,
     type VehicleDetail,
+    type VehicleWithLocation,
 } from './vehicles.repository.types';
 import type { ListVehiclesInput, CreateVehicleInput, UpdateVehicleInput } from '../vehicles.types';
 
@@ -293,6 +295,26 @@ export async function getVehicleStatistics(
 export type SaleVehicleResult =
     | { success: true; vehicle: VehicleDetail }
     | { success: false; reason: 'NOT_FOUND' | 'HAS_DRIVER' | 'ORG_NOT_FOUND' };
+
+/**
+ * Find all vehicles with location data for map display
+ * Only returns vehicles that have coordinates set
+ */
+export async function findVehiclesWithLocation(
+    organizationId: string,
+    isAdmin: boolean
+): Promise<VehicleWithLocation[]> {
+    return db.vehicle.findMany({
+        where: {
+            ...(isAdmin ? {} : { organizationId }),
+            // Only include vehicles with location data
+            latitude: { not: null },
+            longitude: { not: null },
+        },
+        select: vehicleWithLocationSelect,
+        orderBy: [{ lastLocationUpdate: 'desc' }],
+    });
+}
 
 export async function saleVehicleToNewOrganization(
     vehicleId: string,

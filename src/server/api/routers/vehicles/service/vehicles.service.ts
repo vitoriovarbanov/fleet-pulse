@@ -2,7 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { db } from '@/server/database';
 import { Logger } from '@/server/api/common/logger';
 import * as repository from '../repository/vehicles.repository';
-import type { VehicleCard } from '../repository/vehicles.repository.types';
+import type { VehicleCard, VehicleWithLocation } from '../repository/vehicles.repository.types';
 import type { ListVehiclesInput, CreateVehicleInput, UpdateVehicleInput, ChangeStatusInput } from '../vehicles.types';
 import type {
     ListVehiclesResult,
@@ -281,6 +281,23 @@ export async function getStatistics(
 
     log.debug('Vehicle statistics retrieved', { total: stats.total });
     return stats;
+}
+
+/**
+ * List vehicles with location data for map display
+ */
+export async function listVehiclesWithLocation(
+    organizationId: string,
+    isAdmin: boolean,
+    logger?: Logger
+): Promise<VehicleWithLocation[]> {
+    const log = logger?.child('VehiclesService') ?? new Logger('VehiclesService');
+    log.debug('Listing vehicles with location');
+
+    const vehicles = await repository.findVehiclesWithLocation(organizationId, isAdmin);
+
+    log.info('Vehicles with location listed', { count: vehicles.length });
+    return vehicles;
 }
 
 export async function saleToNewOrganization(

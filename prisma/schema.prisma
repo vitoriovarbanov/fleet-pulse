@@ -336,6 +336,11 @@ model Vehicle {
   // Image (R2 storage key)
   imageKey        String?                // Storage key for vehicle image
 
+  // Location Tracking (GPS coordinates)
+  latitude           Float?              // Current latitude
+  longitude          Float?              // Current longitude
+  lastLocationUpdate DateTime?           // When location was last updated
+
   // Notes
   notes           String?
 

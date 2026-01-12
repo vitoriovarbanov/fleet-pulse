@@ -230,7 +230,38 @@ const germanDrivers = [
   },
 ];
 
-// Real truck brands and models for vehicles
+// EU city coordinates for mock location data
+const euLocations = [
+  { city: "Berlin", latitude: 52.52, longitude: 13.405 },
+  { city: "Munich", latitude: 48.1351, longitude: 11.582 },
+  { city: "Hamburg", latitude: 53.5511, longitude: 9.9937 },
+  { city: "Frankfurt", latitude: 50.1109, longitude: 8.6821 },
+  { city: "Cologne", latitude: 50.9375, longitude: 6.9603 },
+  { city: "Amsterdam", latitude: 52.3676, longitude: 4.9041 },
+  { city: "Rotterdam", latitude: 51.9244, longitude: 4.4777 },
+  { city: "Paris", latitude: 48.8566, longitude: 2.3522 },
+  { city: "Lyon", latitude: 45.764, longitude: 4.8357 },
+  { city: "Warsaw", latitude: 52.2297, longitude: 21.0122 },
+  { city: "Prague", latitude: 50.0755, longitude: 14.4378 },
+  { city: "Vienna", latitude: 48.2082, longitude: 16.3738 },
+  { city: "Brussels", latitude: 50.8503, longitude: 4.3517 },
+  { city: "Zurich", latitude: 47.3769, longitude: 8.5417 },
+  { city: "Milan", latitude: 45.4642, longitude: 9.19 },
+];
+
+// Add small random offset to coordinates to simulate vehicles near cities
+function randomizeLocation(location: { latitude: number; longitude: number }) {
+  // Add random offset of up to ~5km
+  const latOffset = (Math.random() - 0.5) * 0.1;
+  const lngOffset = (Math.random() - 0.5) * 0.1;
+  return {
+    latitude: location.latitude + latOffset,
+    longitude: location.longitude + lngOffset,
+    lastLocationUpdate: new Date(),
+  };
+}
+
+// Real truck brands and models for vehicles with EU locations
 const germanVehicles = [
   {
     plateNumber: "B-FP 1001",
@@ -240,6 +271,7 @@ const germanVehicles = [
     year: 2022,
     type: "TRUCK" as VehicleType,
     status: "ACTIVE" as VehicleStatus,
+    locationIndex: 0, // Berlin
   },
   {
     plateNumber: "M-FP 2002",
@@ -249,6 +281,7 @@ const germanVehicles = [
     year: 2021,
     type: "TRUCK" as VehicleType,
     status: "ACTIVE" as VehicleStatus,
+    locationIndex: 1, // Munich
   },
   {
     plateNumber: "HH-FP 3003",
@@ -258,6 +291,7 @@ const germanVehicles = [
     year: 2023,
     type: "TRUCK" as VehicleType,
     status: "ACTIVE" as VehicleStatus,
+    locationIndex: 2, // Hamburg
   },
   {
     plateNumber: "F-FP 4004",
@@ -267,6 +301,7 @@ const germanVehicles = [
     year: 2022,
     type: "TRUCK" as VehicleType,
     status: "MAINTENANCE" as VehicleStatus,
+    locationIndex: 3, // Frankfurt
   },
   {
     plateNumber: "K-FP 5005",
@@ -276,6 +311,7 @@ const germanVehicles = [
     year: 2020,
     type: "TRUCK" as VehicleType,
     status: "ACTIVE" as VehicleStatus,
+    locationIndex: 5, // Amsterdam
   },
   {
     plateNumber: "D-FP 6006",
@@ -285,6 +321,7 @@ const germanVehicles = [
     year: 2023,
     type: "TRUCK" as VehicleType,
     status: "ACTIVE" as VehicleStatus,
+    locationIndex: 7, // Paris
   },
   {
     plateNumber: "S-FP 7007",
@@ -294,6 +331,7 @@ const germanVehicles = [
     year: 2022,
     type: "TRUCK" as VehicleType,
     status: "ACTIVE" as VehicleStatus,
+    locationIndex: 9, // Warsaw
   },
   {
     plateNumber: "N-FP 8008",
@@ -303,6 +341,7 @@ const germanVehicles = [
     year: 2021,
     type: "TRUCK" as VehicleType,
     status: "OUT_OF_SERVICE" as VehicleStatus,
+    locationIndex: 10, // Prague
   },
   {
     plateNumber: "L-FP 9009",
@@ -312,6 +351,7 @@ const germanVehicles = [
     year: 2022,
     type: "TRUCK" as VehicleType,
     status: "ACTIVE" as VehicleStatus,
+    locationIndex: 11, // Vienna
   },
   {
     plateNumber: "E-FP 1010",
@@ -321,6 +361,7 @@ const germanVehicles = [
     year: 2021,
     type: "TRUCK" as VehicleType,
     status: "ACTIVE" as VehicleStatus,
+    locationIndex: 12, // Brussels
   },
 ];
 
@@ -350,16 +391,25 @@ async function main() {
   const createdVehicles: Array<{ id: string; plateNumber: string }> = [];
 
   for (const vehicle of germanVehicles) {
+    // Get location data for this vehicle
+    const baseLocation = euLocations[vehicle.locationIndex];
+    const locationData = baseLocation ? randomizeLocation(baseLocation) : {};
+
+    const { locationIndex: _, ...vehicleData } = vehicle;
+
     const createdVehicle = await prisma.vehicle.upsert({
       where: { plateNumber: vehicle.plateNumber },
-      update: {},
+      // Update only location fields for existing vehicles (preserves images, etc.)
+      update: locationData,
       create: {
-        ...vehicle,
+        ...vehicleData,
+        ...locationData,
         organizationId: defaultOrg.id,
       },
     });
     createdVehicles.push({ id: createdVehicle.id, plateNumber: createdVehicle.plateNumber });
-    console.log(`  Created vehicle: ${vehicle.make} ${vehicle.model} (${vehicle.plateNumber})`);
+    const locationCity = baseLocation ? euLocations[vehicle.locationIndex]?.city : "Unknown";
+    console.log(`  Created/updated vehicle: ${vehicle.make} ${vehicle.model} (${vehicle.plateNumber}) - Location: ${locationCity}`);
   }
 
   // Create drivers with driver profiles
