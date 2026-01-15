@@ -8,6 +8,7 @@ import type { User, Organization, DriverProfile, DispatcherProfile } from "@/gen
 import { syncUserToDatabase } from "./routers/auth/service/auth.service";
 import { Logger, generateRequestId } from "./common/logger";
 import { checkRateLimit, type RateLimitConfig } from "./common/middlewares/rate-limit.middleware";
+import type { OpenApiMeta } from "trpc-to-openapi";
 
 /**
  * User with related data from database
@@ -43,18 +44,21 @@ export type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>>;
 /**
  * tRPC initialization
  */
-const t = initTRPC.context<TRPCContext>().create({
-    transformer: superjson,
-    errorFormatter({ shape, error }) {
-        return {
-            ...shape,
-            data: {
-                ...shape.data,
-                zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
-            },
-        };
-    },
-});
+const t = initTRPC
+    .context<TRPCContext>()
+    .meta<OpenApiMeta>()
+    .create({
+        transformer: superjson,
+        errorFormatter({ shape, error }) {
+            return {
+                ...shape,
+                data: {
+                    ...shape.data,
+                    zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
+                },
+            };
+        },
+    });
 
 /**
  * Router and procedure helpers

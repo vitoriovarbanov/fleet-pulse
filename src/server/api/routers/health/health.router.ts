@@ -1,21 +1,44 @@
 import { createTRPCRouter, publicProcedure } from "../../trpc";
 import { db } from "@/server/database";
 import { redis } from "@/server/redis";
+import { z } from "zod";
 
-type HealthStatus = "healthy" | "unhealthy" | "degraded";
+const healthStatusSchema = z.enum(["healthy", "unhealthy", "degraded"]);
 
-type ServiceHealth = {
-  status: HealthStatus;
-  latency?: number;
-  error?: string;
-};
+const serviceHealthSchema = z.object({
+  status: healthStatusSchema,
+  latency: z.number().optional(),
+  error: z.string().optional(),
+});
+
+const healthCheckOutputSchema = z.object({
+  status: healthStatusSchema,
+  timestamp: z.string(),
+  services: z.record(z.string(), serviceHealthSchema),
+});
+
+type HealthStatus = z.infer<typeof healthStatusSchema>;
+
+type ServiceHealth = z.infer<typeof serviceHealthSchema>;
 
 export const healthRouter = createTRPCRouter({
   /**
    * Full health check - verifies all dependencies
    * Test: /api/trpc/health.check
    */
-  check: publicProcedure.query(async () => {
+  check: publicProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/health/check",
+        tags: ["Health"],
+        summary: "Full health check",
+        description: "Verifies all dependencies (database, Redis) and returns overall system health status",
+      },
+    })
+    .input(z.void())
+    .output(healthCheckOutputSchema)
+    .query(async () => {
     const services: Record<string, ServiceHealth> = {};
 
     // Check Database
@@ -76,7 +99,19 @@ export const healthRouter = createTRPCRouter({
    * Ping endpoint - simple liveness check (no dependencies)
    * Test: /api/trpc/health.ping
    */
-  ping: publicProcedure.query(() => {
-    return "pong";
-  }),
+  ping: publicProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/health/ping",
+        tags: ["Health"],
+        summary: "Ping",
+        description: "Simple liveness check that returns 'pong' - no dependencies required",
+      },
+    })
+    .input(z.void())
+    .output(z.literal("pong"))
+    .query(() => {
+      return "pong" as const;
+    }),
 });

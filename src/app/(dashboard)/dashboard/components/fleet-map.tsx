@@ -53,13 +53,14 @@ const getMapStyle = (theme: string | undefined, apiKey: string | undefined) => {
 
 export function FleetMap({ vehicles, className, isLoading }: FleetMapProps) {
   const mapRef = useRef<MapRef>(null);
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const { selectedVehicleId, setSelectedVehicleId, mapCenter, setMapCenter } = useDashboard();
   const [mapLoaded, setMapLoaded] = useState(false);
 
   // Get API key from environment
   const apiKey = process.env.NEXT_PUBLIC_MAPTILER_API_KEY;
-  const mapStyle = getMapStyle(theme, apiKey);
+  // Use resolvedTheme which gives the actual theme even when set to "system"
+  const mapStyle = getMapStyle(resolvedTheme, apiKey);
 
   // Fit bounds to show all vehicles on initial load
   const fitBounds = useCallback(() => {
