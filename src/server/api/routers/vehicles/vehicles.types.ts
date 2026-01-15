@@ -115,3 +115,51 @@ export const saleVehicleInputSchema = z.object({
 });
 
 export type SaleVehicleInput = z.infer<typeof saleVehicleInputSchema>;
+
+// ============================================
+// OUTPUT SCHEMAS (for OpenAPI documentation)
+// These use z.any() to avoid type conflicts with Prisma service returns
+// while still providing OpenAPI documentation structure
+// ============================================
+
+export const listVehiclesOutputSchema = z.object({
+  vehicles: z.array(z.any()),
+  nextCursor: z.string().nullable(),
+});
+
+export const vehicleDetailOutputSchema = z.any();
+
+export const createVehicleOutputSchema = z.any();
+
+export const updateVehicleOutputSchema = z.any();
+
+export const deleteVehicleOutputSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+});
+
+export const changeStatusOutputSchema = z.any();
+
+export const assignDriverOutputSchema = z.object({
+  success: z.boolean(),
+  vehicle: z.any().nullable(),
+  message: z.string(),
+});
+
+export const listAvailableOutputSchema = z.array(z.any());
+
+export const statisticsOutputSchema = z.object({
+  total: z.number(),
+  byStatus: z.record(z.string(), z.number()),
+  byType: z.record(z.string(), z.number()),
+  assigned: z.number(),
+  unassigned: z.number(),
+});
+
+export const listWithLocationOutputSchema = z.array(z.any());
+
+export const saleVehicleOutputSchema = z.object({
+  success: z.boolean(),
+  vehicle: z.any().nullable(),
+  message: z.string(),
+});

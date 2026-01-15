@@ -15,7 +15,60 @@ import {
 } from "@/server/storage";
 import { db } from "@/server/database";
 
+// Input schemas
 const fileCategorySchema = z.enum(["avatars", "vehicles", "documents", "certifications"]);
+
+const getUploadUrlInputSchema = z.object({
+    category: fileCategorySchema,
+    entityId: z.string().min(1),
+    filename: z.string().min(1),
+    contentType: z.string().min(1),
+    size: z.number().positive(),
+});
+
+const fileKeyInputSchema = z.object({
+    key: z.string().min(1),
+});
+
+// Output schemas
+const getUploadUrlOutputSchema = z.object({
+    uploadUrl: z.string(),
+    key: z.string(),
+    expiresIn: z.number(),
+});
+
+const getDownloadUrlOutputSchema = z.object({
+    downloadUrl: z.string(),
+    expiresIn: z.number(),
+});
+
+const confirmAvatarUploadOutputSchema = z.object({
+    success: z.boolean(),
+    avatarKey: z.string(),
+    user: z.object({
+        id: z.string(),
+        avatarUrl: z.string().nullable(),
+    }),
+});
+
+const deleteFileOutputSchema = z.object({
+    success: z.boolean(),
+});
+
+const fileLimitsSchema = z.object({
+    maxSize: z.number(),
+    allowedTypes: z.array(z.string()),
+});
+
+const getConfigOutputSchema = z.object({
+    configured: z.boolean(),
+    limits: z.object({
+        avatars: fileLimitsSchema,
+        vehicles: fileLimitsSchema,
+        documents: fileLimitsSchema,
+        certifications: fileLimitsSchema,
+    }),
+});
 
 export const filesRouter = createTRPCRouter({
     /**
@@ -23,15 +76,18 @@ export const filesRouter = createTRPCRouter({
      * Rate limited: 20 per hour
      */
     getUploadUrl: protectedRateLimitedProcedure(RateLimits.FILE_UPLOAD)
-        .input(
-            z.object({
-                category: fileCategorySchema,
-                entityId: z.string().min(1),
-                filename: z.string().min(1),
-                contentType: z.string().min(1),
-                size: z.number().positive(),
-            })
-        )
+        .meta({
+            openapi: {
+                method: "POST",
+                path: "/files/upload-url",
+                tags: ["Files"],
+                summary: "Get upload URL",
+                description: "Returns a presigned URL for uploading a file. Rate limited to 20 per hour.",
+                protect: true,
+            },
+        })
+        .input(getUploadUrlInputSchema)
+        .output(getUploadUrlOutputSchema)
         .mutation(async ({ ctx, input }) => {
             const log = ctx.logger.child("FilesRouter");
 
@@ -83,11 +139,18 @@ export const filesRouter = createTRPCRouter({
      * Get a presigned URL for downloading/viewing a file
      */
     getDownloadUrl: protectedProcedure
-        .input(
-            z.object({
-                key: z.string().min(1),
-            })
-        )
+        .meta({
+            openapi: {
+                method: "GET",
+                path: "/files/download-url",
+                tags: ["Files"],
+                summary: "Get download URL",
+                description: "Returns a presigned URL for downloading/viewing a file",
+                protect: true,
+            },
+        })
+        .input(fileKeyInputSchema)
+        .output(getDownloadUrlOutputSchema)
         .query(async ({ ctx, input }) => {
             const log = ctx.logger.child("FilesRouter");
 
@@ -125,11 +188,18 @@ export const filesRouter = createTRPCRouter({
      * Called after successful browser upload to presigned URL
      */
     confirmAvatarUpload: protectedProcedure
-        .input(
-            z.object({
-                key: z.string().min(1),
-            })
-        )
+        .meta({
+            openapi: {
+                method: "POST",
+                path: "/files/confirm-avatar",
+                tags: ["Files"],
+                summary: "Confirm avatar upload",
+                description: "Confirms avatar upload and updates the user's avatar URL in the database",
+                protect: true,
+            },
+        })
+        .input(fileKeyInputSchema)
+        .output(confirmAvatarUploadOutputSchema)
         .mutation(async ({ ctx, input }) => {
             const log = ctx.logger.child("FilesRouter");
             const { key } = input;
@@ -176,11 +246,18 @@ export const filesRouter = createTRPCRouter({
      * Delete a file
      */
     delete: protectedProcedure
-        .input(
-            z.object({
-                key: z.string().min(1),
-            })
-        )
+        .meta({
+            openapi: {
+                method: "DELETE",
+                path: "/files",
+                tags: ["Files"],
+                summary: "Delete file",
+                description: "Deletes a file from storage by its key",
+                protect: true,
+            },
+        })
+        .input(fileKeyInputSchema)
+        .output(deleteFileOutputSchema)
         .mutation(async ({ ctx, input }) => {
             const log = ctx.logger.child("FilesRouter");
 
@@ -213,29 +290,42 @@ export const filesRouter = createTRPCRouter({
     /**
      * Get storage configuration status and limits
      */
-    getConfig: protectedProcedure.query(({ ctx }) => {
-        ctx.logger.child("FilesRouter").debug("Config requested");
-
-        return {
-            configured: isStorageConfigured(),
-            limits: {
-                avatars: {
-                    maxSize: maxFileSizes.avatars,
-                    allowedTypes: allowedMimeTypes.avatars,
-                },
-                vehicles: {
-                    maxSize: maxFileSizes.vehicles,
-                    allowedTypes: allowedMimeTypes.vehicles,
-                },
-                documents: {
-                    maxSize: maxFileSizes.documents,
-                    allowedTypes: allowedMimeTypes.documents,
-                },
-                certifications: {
-                    maxSize: maxFileSizes.certifications,
-                    allowedTypes: allowedMimeTypes.certifications,
-                },
+    getConfig: protectedProcedure
+        .meta({
+            openapi: {
+                method: "GET",
+                path: "/files/config",
+                tags: ["Files"],
+                summary: "Get storage config",
+                description: "Returns storage configuration status and file size/type limits",
+                protect: true,
             },
-        };
-    }),
+        })
+        .input(z.void())
+        .output(getConfigOutputSchema)
+        .query(({ ctx }) => {
+            ctx.logger.child("FilesRouter").debug("Config requested");
+
+            return {
+                configured: isStorageConfigured(),
+                limits: {
+                    avatars: {
+                        maxSize: maxFileSizes.avatars,
+                        allowedTypes: allowedMimeTypes.avatars,
+                    },
+                    vehicles: {
+                        maxSize: maxFileSizes.vehicles,
+                        allowedTypes: allowedMimeTypes.vehicles,
+                    },
+                    documents: {
+                        maxSize: maxFileSizes.documents,
+                        allowedTypes: allowedMimeTypes.documents,
+                    },
+                    certifications: {
+                        maxSize: maxFileSizes.certifications,
+                        allowedTypes: allowedMimeTypes.certifications,
+                    },
+                },
+            };
+        }),
 });

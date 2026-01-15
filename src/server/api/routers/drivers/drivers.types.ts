@@ -134,6 +134,119 @@ export const assignVehicleInputSchema = z.object({
 });
 
 // ============================================
+// OUTPUT SCHEMAS (for OpenAPI documentation)
+// ============================================
+
+const userStatusSchema = z.enum(["ACTIVE", "INACTIVE"]);
+
+const vehicleBasicSchema = z.object({
+  id: z.string(),
+  plateNumber: z.string(),
+  make: z.string(),
+  model: z.string(),
+});
+
+const vehicleDetailSchema = vehicleBasicSchema.extend({
+  type: z.string(),
+  status: z.string(),
+});
+
+const driverCardSchema = z.object({
+  id: z.string(),
+  firstName: z.string().nullable(),
+  lastName: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  phoneNumber: z.string().nullable(),
+  email: z.string(),
+  status: userStatusSchema,
+  driverProfile: z.object({
+    id: z.string(),
+    driverStatus: driverStatusSchema,
+    isAvailable: z.boolean(),
+    licenseCategories: z.array(z.string()),
+    licenseExpiryDate: z.coerce.date(),
+    assignedVehicleId: z.string().nullable(),
+    assignedVehicle: vehicleBasicSchema.nullable(),
+  }).nullable(),
+});
+
+const organizationBasicSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+});
+
+const driverProfileDetailSchema = z.object({
+  id: z.string(),
+  licenseNumber: z.string(),
+  licenseCountry: z.string(),
+  licenseIssueDate: z.coerce.date(),
+  licenseExpiryDate: z.coerce.date(),
+  licenseCategories: z.array(z.string()),
+  medicalCertIssueDate: z.coerce.date().nullable(),
+  medicalCertExpiryDate: z.coerce.date().nullable(),
+  driverStatus: driverStatusSchema,
+  isAvailable: z.boolean(),
+  yearsExperience: z.number().nullable(),
+  assignedVehicleId: z.string().nullable(),
+  safetyScore: z.any().nullable(), // Decimal from Prisma, serialized by superjson
+  onTimeDeliveryRate: z.any().nullable(), // Decimal from Prisma, serialized by superjson
+  adrCertNumber: z.string().nullable(),
+  adrExpiryDate: z.coerce.date().nullable(),
+  notes: z.string().nullable(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  assignedVehicle: vehicleDetailSchema.nullable(),
+});
+
+const driverDetailSchema = z.object({
+  id: z.string(),
+  clerkId: z.string().nullable(),
+  organizationId: z.string(),
+  email: z.string(),
+  firstName: z.string().nullable(),
+  lastName: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  phoneNumber: z.string().nullable(),
+  role: z.enum(["ADMIN", "FLEET_MANAGER", "DISPATCHER", "DRIVER"]),
+  status: userStatusSchema,
+  employeeId: z.string().nullable(),
+  hireDate: z.coerce.date().nullable(),
+  terminationDate: z.coerce.date().nullable(),
+  address: z.string().nullable(),
+  city: z.string().nullable(),
+  postalCode: z.string().nullable(),
+  country: z.string().nullable(),
+  contractType: z.string().nullable(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  organization: organizationBasicSchema,
+  driverProfile: driverProfileDetailSchema.nullable(),
+});
+
+export const listDriversOutputSchema = z.object({
+  drivers: z.array(driverCardSchema),
+  nextCursor: z.string().nullable(),
+});
+
+export const driverDetailOutputSchema = driverDetailSchema.nullable();
+
+export const createDriverOutputSchema = driverDetailSchema.nullable();
+
+export const updateDriverOutputSchema = driverDetailSchema.nullable();
+
+export const deleteDriverOutputSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+});
+
+export const assignVehicleOutputSchema = z.object({
+  success: z.boolean(),
+  driver: driverDetailSchema.nullable(),
+  message: z.string(),
+});
+
+// ============================================
 // INFERRED TYPES
 // ============================================
 
