@@ -1,385 +1,88 @@
-# Security Checklist for Next.js + tRPC + Prisma Applications
+# Security Checklist for Fleet Pulse
 
-This document provides a comprehensive security checklist for modern web applications using the following tech stack:
+This document provides a security checklist tailored for Fleet Pulse's architecture:
 
-- **Next.js 15+** (App Router, React Server Components)
-- **React 19**
-- **tRPC v11**
-- **Prisma ORM**
-- **Clerk Authentication**
-- **Redis** (caching, rate limiting)
-- **PostgreSQL**
+- **Next.js 16** with App Router (Client-Side Rendering only - no RSC)
+- **React 19** (client components with `'use client'`)
+- **tRPC v11** (HTTP transport, no WebSockets)
+- **Prisma 7** with PostgreSQL
+- **Clerk** for authentication
+- **Redis** for caching and rate limiting
+- **Railway** for deployment
 
-Use this as a template for security audits and new project setups.
+> **Note:** This app does NOT use React Server Components or Server Actions. All pages use `'use client'` directives with tRPC for API communication.
 
 ---
 
 ## Table of Contents
 
-1. [Critical Vulnerabilities (2025)](#1-critical-vulnerabilities-2025)
-2. [Authentication & Session Security](#2-authentication--session-security)
-3. [XSS & Input Sanitization](#3-xss--input-sanitization)
-4. [Security Headers (CSP, CORS, HSTS)](#4-security-headers-csp-cors-hsts)
+1. [Current Security Status](#1-current-security-status)
+2. [Security Headers](#2-security-headers)
+3. [CORS Configuration](#3-cors-configuration)
+4. [XSS & Input Sanitization](#4-xss--input-sanitization)
 5. [Rate Limiting & DoS Protection](#5-rate-limiting--dos-protection)
 6. [Database & Prisma Security](#6-database--prisma-security)
-7. [Error Handling & Logging Security](#7-error-handling--logging-security)
-8. [Dependency & Supply Chain Security](#8-dependency--supply-chain-security)
+7. [Error Handling & Logging](#7-error-handling--logging)
+8. [CI/CD Security](#8-cicd-security)
 9. [Quick Reference Checklist](#9-quick-reference-checklist)
 
 ---
 
-## 1. Critical Vulnerabilities (2025)
+## 1. Current Security Status
 
-### Known CVEs Affecting This Stack
+### What's Already Implemented ✅
 
-| CVE | Component | Severity | Fixed In | Description |
-|-----|-----------|----------|----------|-------------|
-| [CVE-2025-55182](https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components) | React 19 RSC | **CVSS 10.0** | 19.0.3+ | Remote Code Execution via RSC protocol |
-| [CVE-2025-66478](https://nextjs.org/blog/CVE-2025-66478) | Next.js App Router | **CVSS 10.0** | 15.0.7+ | Downstream impact of React RSC vulnerability |
-| [CVE-2025-29927](https://projectdiscovery.io/blog/nextjs-middleware-authorization-bypass) | Next.js Middleware | **High** | 15.2.3+ | Middleware bypass via `x-middleware-subrequest` header |
-| [CVE-2025-43855](https://github.com/trpc/trpc/security/advisories/GHSA-pj3v-9cm8-gvj8) | tRPC WebSocket | **DoS** | 11.1.1+ | Server crash via malformed connectionParams |
+| Feature | Location | Status |
+|---------|----------|--------|
+| Rate limiting with Redis | `src/server/api/common/middlewares/rate-limit.middleware.ts` | ✅ Done |
+| Logging with sensitive data redaction | `src/server/api/common/logger.ts` | ✅ Done |
+| tRPC protected procedures | `src/server/api/trpc.ts` | ✅ Done |
+| Admin role enforcement | `src/server/api/trpc.ts` | ✅ Done |
+| Explicit Prisma `select` clauses | Repository files | ✅ Done |
+| Pagination with limits | `listVehiclesInputSchema`, `listDriversInputSchema` | ✅ Done |
+| Zod input validation | All router type files | ✅ Done |
+| Non-root Docker user | `Dockerfile` | ✅ Done |
 
-### Minimum Safe Versions
+### Package Versions (All Safe) ✅
 
-```json
-{
-  "dependencies": {
-    "react": "^19.0.3",
-    "react-dom": "^19.0.3",
-    "next": "^15.2.3",
-    "@trpc/server": "^11.1.1",
-    "@trpc/client": "^11.1.1",
-    "@trpc/react-query": "^11.1.1"
-  }
-}
-```
+| Package | Your Version | Minimum Safe | Status |
+|---------|--------------|--------------|--------|
+| React | 19.2.3 | 19.0.3+ | ✅ Safe |
+| Next.js | 16.1.0 | 15.2.3+ | ✅ Safe |
+| tRPC | 11.8.1 | 11.1.1+ | ✅ Safe |
+| Prisma | 7.2.0 | N/A | ✅ Current |
 
-### Sources
+### CVEs NOT Applicable to This App
 
-- [React Security Blog](https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components)
-- [Next.js Security Updates](https://nextjs.org/blog/security-update-2025-12-11)
-- [tRPC Security Advisories](https://github.com/trpc/trpc/security/advisories)
-- [Microsoft Security Blog - React2Shell](https://www.microsoft.com/en-us/security/blog/2025/12/15/defending-against-the-cve-2025-55182-react2shell-vulnerability-in-react-server-components/)
+These vulnerabilities don't affect Fleet Pulse because of its architecture:
+
+| CVE | Why Not Applicable |
+|-----|-------------------|
+| CVE-2025-55182 (React2Shell) | Requires React Server Components - you use client-only rendering |
+| CVE-2025-66478 (Next.js RSC) | Downstream of React RSC vulnerability - not applicable |
+| CVE-2025-29927 (Middleware bypass) | Only affects apps using `middleware.ts` for auth - you use tRPC procedures |
+| CVE-2025-43855 (tRPC WebSocket DoS) | Requires WebSocket transport - you use HTTP only |
 
 ---
 
-## 2. Authentication & Session Security
+## 2. Security Headers
 
 ### Threats
 
 | Threat | Description | Risk |
 |--------|-------------|------|
-| **Session Hijacking** | Stealing session cookies to impersonate users | High |
-| **Session Fixation** | Setting known session ID before authentication | Medium |
-| **CSRF Attacks** | Forging requests on behalf of authenticated users | Medium |
-| **Webhook Forgery** | Sending fake webhook events without signature | High |
-| **Brute Force** | Password guessing attacks on login endpoints | High |
-
-### Clerk Security Features
-
-Clerk provides built-in protections:
-- `__session` cookie with 60-second rotation (mitigates XSS cookie theft)
-- `SameSite=Lax` for CSRF protection
-- Session token rotation on sign-in/sign-out
-- HttpOnly cookies for Frontend API requests
-
-**References:**
-- [Clerk XSS Leak Protection](https://clerk.com/docs/security/xss-leak-protection)
-- [Clerk CSRF Protection](https://clerk.com/docs/guides/secure/best-practices/csrf-protection)
-- [Clerk Fixation Protection](https://clerk.com/docs/guides/secure/best-practices/fixation-protection)
-
-### Solutions
-
-#### 2.1 Webhook Signature Validation
-
-```typescript
-// src/app/api/webhooks/clerk/route.ts
-import { Webhook } from 'svix';
-import { headers } from 'next/headers';
-import { type WebhookEvent } from '@clerk/nextjs/server';
-
-export async function POST(req: Request) {
-  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
-  if (!WEBHOOK_SECRET) {
-    throw new Error('Missing CLERK_WEBHOOK_SECRET');
-  }
-
-  const headerPayload = await headers();
-  const svix_id = headerPayload.get('svix-id');
-  const svix_timestamp = headerPayload.get('svix-timestamp');
-  const svix_signature = headerPayload.get('svix-signature');
-
-  if (!svix_id || !svix_timestamp || !svix_signature) {
-    return new Response('Missing svix headers', { status: 400 });
-  }
-
-  const payload = await req.json();
-  const body = JSON.stringify(payload);
-
-  const wh = new Webhook(WEBHOOK_SECRET);
-  let evt: WebhookEvent;
-
-  try {
-    evt = wh.verify(body, {
-      'svix-id': svix_id,
-      'svix-timestamp': svix_timestamp,
-      'svix-signature': svix_signature,
-    }) as WebhookEvent;
-  } catch (err) {
-    console.error('Webhook verification failed:', err);
-    return new Response('Invalid signature', { status: 400 });
-  }
-
-  // Process verified webhook...
-  return new Response('OK', { status: 200 });
-}
-```
-
-#### 2.2 Re-authentication for Sensitive Operations
-
-```typescript
-// src/server/api/trpc.ts
-export const sensitiveOperationProcedure = protectedProcedure.use(
-  async ({ ctx, next }) => {
-    const sessionClaims = ctx.session?.sessionClaims;
-    const issuedAt = sessionClaims?.iat;
-
-    // Require session issued within last 5 minutes
-    if (issuedAt && Date.now() / 1000 - issuedAt > 300) {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Please re-authenticate for this operation',
-      });
-    }
-    return next();
-  }
-);
-```
-
-#### 2.3 Session Activity Tracking
-
-```typescript
-// src/server/api/routers/auth/service/auth.service.ts
-export async function updateLastActivity(userId: string) {
-  await db.user.update({
-    where: { clerkId: userId },
-    data: { lastActiveAt: new Date() },
-  });
-}
-```
-
-### Checklist
-
-| Item | Priority | Status |
-|------|----------|--------|
-| Implement Clerk webhook signature validation | Critical | ☐ |
-| Add `CLERK_WEBHOOK_SECRET` to environment | Critical | ☐ |
-| Track user last activity timestamp | Medium | ☐ |
-| Require re-auth for sensitive operations | Medium | ☐ |
-| Configure Clerk session lifetime | Low | ☐ |
-| Enable Clerk device tracking | Low | ☐ |
-
----
-
-## 3. XSS & Input Sanitization
-
-### Threats
-
-| Threat | Description | Risk |
-|--------|-------------|------|
-| **Stored XSS** | Malicious scripts saved in database, executed later | Critical |
-| **DOM-based XSS** | URL parameters rendered without sanitization | High |
-| **React2Shell (CVE-2025-55182)** | RCE via React Server Components | Critical |
-| **Prisma Operator Injection** | Query operators bypass authentication | High |
-| **dangerouslySetInnerHTML** | Bypasses React's built-in escaping | High |
-
-### Sources
-
-- [React XSS Vulnerabilities](https://www.invicti.com/blog/web-security/is-react-vulnerable-to-xss)
-- [Prisma NoSQL-style Injection](https://www.aikido.dev/blog/prisma-and-postgresql-vulnerable-to-nosql-injection)
-- [tRPC Security Research](https://medium.com/@LogicalHunter/trpc-security-research-hunting-for-vulnerabilities-in-modern-apis-b0d38e06fa71)
-
-### Solutions
-
-#### 3.1 Install Sanitization Library
-
-```bash
-npm install isomorphic-dompurify
-```
-
-#### 3.2 HTML Sanitization Utility
-
-```typescript
-// src/lib/sanitize.ts
-import DOMPurify from 'isomorphic-dompurify';
-
-/**
- * Sanitize HTML content to prevent XSS
- */
-export function sanitizeHtml(dirty: string): string {
-  return DOMPurify.sanitize(dirty, {
-    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li'],
-    ALLOWED_ATTR: ['href', 'target', 'rel'],
-    ALLOW_DATA_ATTR: false,
-  });
-}
-
-/**
- * Strip all HTML tags - use for plain text fields
- */
-export function stripHtml(dirty: string): string {
-  return DOMPurify.sanitize(dirty, { ALLOWED_TAGS: [] });
-}
-
-/**
- * Sanitize for safe attribute values
- */
-export function sanitizeAttribute(value: string): string {
-  return value.replace(/[<>"'&]/g, (char) => {
-    const entities: Record<string, string> = {
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#x27;',
-      '&': '&amp;',
-    };
-    return entities[char] ?? char;
-  });
-}
-```
-
-#### 3.3 Zod Schemas with Sanitization
-
-```typescript
-// src/server/api/routers/[feature]/[feature].types.ts
-import { z } from 'zod';
-import { stripHtml, sanitizeHtml } from '@/lib/sanitize';
-
-// Transform that strips HTML for plain text fields
-const sanitizedString = z.string().transform(stripHtml);
-
-// Transform that allows safe HTML for rich text fields
-const sanitizedHtmlString = z.string().transform(sanitizeHtml);
-
-// Example schema
-export const createVehicleSchema = z.object({
-  licensePlate: sanitizedString.pipe(z.string().min(1).max(20)),
-  make: sanitizedString.pipe(z.string().min(1).max(50)),
-  model: sanitizedString.pipe(z.string().min(1).max(50)),
-  notes: sanitizedHtmlString.pipe(z.string().max(2000)).optional(),
-});
-
-// IMPORTANT: Never use z.any() or z.unknown() for user input
-// WRONG: z.object({ filters: z.any() })
-// RIGHT: z.object({ filters: z.object({ status: z.enum(['active', 'inactive']) }) })
-```
-
-#### 3.4 Prevent Prisma Operator Injection
-
-```typescript
-// src/server/api/common/utils/input-guards.ts
-import { z } from 'zod';
-import { TRPCError } from '@trpc/server';
-
-/**
- * Ensure a value is a primitive string, not an object
- * Prevents: { password: { not: "" } } attacks
- */
-export function ensureString(value: unknown, fieldName: string): string {
-  if (typeof value !== 'string') {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: `${fieldName} must be a string`,
-    });
-  }
-  return value;
-}
-
-// Safe user lookup
-export async function findUserByEmail(email: unknown) {
-  const safeEmail = ensureString(email, 'email');
-
-  // Use findUnique instead of findFirst when possible
-  return db.user.findUnique({
-    where: { email: safeEmail },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      // NEVER include: passwordHash, apiKey, etc.
-    },
-  });
-}
-```
-
-#### 3.5 Safe Rich Text Component
-
-```tsx
-// src/components/shared/safe-html.tsx
-'use client';
-
-import { sanitizeHtml } from '@/lib/sanitize';
-import { useMemo } from 'react';
-
-type SafeHtmlProps = {
-  html: string;
-  className?: string;
-};
-
-export function SafeHtml({ html, className }: SafeHtmlProps) {
-  const sanitized = useMemo(() => sanitizeHtml(html), [html]);
-
-  return (
-    <div
-      className={className}
-      dangerouslySetInnerHTML={{ __html: sanitized }}
-    />
-  );
-}
-```
-
-### Checklist
-
-| Item | Priority | Status |
-|------|----------|--------|
-| Upgrade React to 19.0.3+ (CVE-2025-55182) | Critical | ☐ |
-| Install and configure DOMPurify | Critical | ☐ |
-| Add sanitization transforms to Zod schemas | Critical | ☐ |
-| Create SafeHtml component wrapper | Critical | ☐ |
-| Audit all uses of `dangerouslySetInnerHTML` | Critical | ☐ |
-| Ensure Zod schemas use strict types (no `z.any()`) | High | ☐ |
-| Validate Prisma query inputs are primitive types | High | ☐ |
-| Sanitize URL search parameters before rendering | Medium | ☐ |
-| Disable tRPC panel in production | Medium | ☐ |
-
----
-
-## 4. Security Headers (CSP, CORS, HSTS)
-
-### Threats
-
-| Threat | Description | Risk |
-|--------|-------------|------|
-| **XSS via Missing CSP** | Injected scripts execute freely | Critical |
 | **Clickjacking** | App embedded in malicious iframe | High |
+| **XSS via Missing CSP** | Injected scripts execute freely | High |
 | **MIME Sniffing** | Browser executes files as scripts | Medium |
 | **Man-in-the-Middle** | HTTP requests intercepted | High |
-| **CORS Misconfiguration** | API exposed to unauthorized origins | High |
-| **Middleware Bypass (CVE-2025-29927)** | Headers bypass security checks | Critical |
 
-### Sources
-
-- [Next.js CSP Guide](https://nextjs.org/docs/pages/guides/content-security-policy)
-- [Next.js Middleware Bypass](https://projectdiscovery.io/blog/nextjs-middleware-authorization-bypass)
-
-### Solutions
-
-#### 4.1 Security Headers in next.config.ts
+### Solution: Add Headers in next.config.ts
 
 ```typescript
 // next.config.ts
 import type { NextConfig } from 'next';
+
+import './src/env';
 
 const securityHeaders = [
   {
@@ -400,15 +103,32 @@ const securityHeaders = [
   },
   {
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+    value: 'camera=(), microphone=(), geolocation=(self), interest-cohort=()',
   },
   {
     key: 'X-XSS-Protection',
     value: '1; mode=block',
   },
+  {
+    key: 'Content-Security-Policy',
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Required for Next.js
+      "style-src 'self' 'unsafe-inline'", // Required for Tailwind
+      "img-src 'self' blob: data: https:",
+      "font-src 'self' data:",
+      "connect-src 'self' https://api.clerk.dev https://*.clerk.accounts.dev https://api.maptiler.com",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      "base-uri 'self'",
+    ].join('; '),
+  },
 ];
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
+  skipTrailingSlashRedirect: true,
+
   async headers() {
     return [
       {
@@ -422,66 +142,43 @@ const nextConfig: NextConfig = {
 export default nextConfig;
 ```
 
-#### 4.2 CSP with Nonces via Middleware
+### Checklist
 
-```typescript
-// src/middleware.ts
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+| Item | Priority | Status |
+|------|----------|--------|
+| Add X-Frame-Options: DENY | Critical | ☐ |
+| Add X-Content-Type-Options: nosniff | Critical | ☐ |
+| Add Strict-Transport-Security (HSTS) | Critical | ☐ |
+| Add Content-Security-Policy | High | ☐ |
+| Add Referrer-Policy | Medium | ☐ |
+| Add Permissions-Policy | Medium | ☐ |
+| Test CSP with [CSP Evaluator](https://csp-evaluator.withgoogle.com/) | Medium | ☐ |
 
-export function middleware(request: NextRequest) {
-  // Block middleware bypass attack (CVE-2025-29927)
-  const subrequestHeader = request.headers.get('x-middleware-subrequest');
-  if (subrequestHeader) {
-    return new NextResponse('Forbidden', { status: 403 });
-  }
+---
 
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+## 3. CORS Configuration
 
-  const cspHeader = `
-    default-src 'self';
-    script-src 'self' 'nonce-${nonce}' 'strict-dynamic';
-    style-src 'self' 'unsafe-inline';
-    img-src 'self' blob: data: https:;
-    font-src 'self' data:;
-    object-src 'none';
-    base-uri 'self';
-    form-action 'self';
-    frame-ancestors 'none';
-    connect-src 'self' https://api.clerk.dev https://*.clerk.accounts.dev;
-    upgrade-insecure-requests;
-  `.replace(/\s{2,}/g, ' ').trim();
+### Threat
 
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-nonce', nonce);
+Without CORS configuration, your tRPC API could be called from any origin, enabling CSRF-like attacks.
 
-  const response = NextResponse.next({
-    request: { headers: requestHeaders },
-  });
-
-  response.headers.set('Content-Security-Policy', cspHeader);
-
-  return response;
-}
-
-export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/webhooks).*)'],
-};
-```
-
-#### 4.3 CORS Configuration for tRPC
+### Solution: Add CORS to tRPC Route
 
 ```typescript
 // src/app/api/trpc/[trpc]/route.ts
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
-import { type NextRequest, NextResponse } from 'next/server';
+import { appRouter } from '@/server/api/root';
+import { createTRPCContext } from '@/server/api/trpc';
+import { NextRequest, NextResponse } from 'next/server';
+import { env } from '@/env';
 
 const ALLOWED_ORIGINS = [
-  process.env.NEXT_PUBLIC_APP_URL,
+  env.NEXT_PUBLIC_APP_URL,
+  'http://localhost:3005',
   'http://localhost:3000',
-].filter(Boolean) as string[];
+].filter(Boolean);
 
-function getCorsHeaders(origin: string | null) {
+function getCorsHeaders(origin: string | null): Record<string, string> {
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-trpc-source',
@@ -496,6 +193,7 @@ function getCorsHeaders(origin: string | null) {
   return headers;
 }
 
+// Handle CORS preflight
 export async function OPTIONS(req: NextRequest) {
   const origin = req.headers.get('origin');
   return new NextResponse(null, {
@@ -503,6 +201,13 @@ export async function OPTIONS(req: NextRequest) {
     headers: getCorsHeaders(origin),
   });
 }
+
+const createContext = async (req: NextRequest, resHeaders: Headers) => {
+  return createTRPCContext({
+    headers: resHeaders,
+    req,
+  });
+};
 
 const handler = async (req: NextRequest) => {
   const origin = req.headers.get('origin');
@@ -513,8 +218,15 @@ const handler = async (req: NextRequest) => {
     req,
     router: appRouter,
     createContext: ({ resHeaders }) => createContext(req, resHeaders),
+    onError:
+      process.env.NODE_ENV === 'development'
+        ? ({ path, error }) => {
+            console.error(`❌ tRPC failed on ${path ?? '<no-path>'}: ${error.message}`);
+          }
+        : undefined,
   });
 
+  // Add CORS headers to response
   Object.entries(corsHeaders).forEach(([key, value]) => {
     response.headers.set(key, value);
   });
@@ -525,533 +237,205 @@ const handler = async (req: NextRequest) => {
 export { handler as GET, handler as POST };
 ```
 
-#### 4.4 Edge/Reverse Proxy Protection (Nginx)
+### Checklist
 
-```nginx
-# Block CVE-2025-29927 at edge
-proxy_set_header x-middleware-subrequest "";
+| Item | Priority | Status |
+|------|----------|--------|
+| Add CORS headers to tRPC route | Critical | ☐ |
+| Handle OPTIONS preflight requests | Critical | ☐ |
+| Whitelist only production + localhost origins | Critical | ☐ |
+| Add CORS to OpenAPI routes if exposed externally | Medium | ☐ |
 
-# Security headers (defense in depth)
-add_header X-Frame-Options "DENY" always;
-add_header X-Content-Type-Options "nosniff" always;
-add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+---
+
+## 4. XSS & Input Sanitization
+
+### Threats
+
+| Threat | Description | Risk |
+|--------|-------------|------|
+| **Stored XSS** | Malicious scripts saved in database, executed later | High |
+| **DOM-based XSS** | URL parameters rendered without sanitization | Medium |
+| **Prisma Operator Injection** | Query operators bypass authentication | Medium |
+
+### Current Protection ✅
+
+- All user input goes through Zod schemas before reaching Prisma
+- React automatically escapes JSX content
+- No `dangerouslySetInnerHTML` usage in codebase
+
+### Optional: Add DOMPurify for Rich Text Fields
+
+If you ever need to render user-provided HTML (e.g., notes with formatting):
+
+```bash
+npm install isomorphic-dompurify
 ```
 
-### CSP Directives Reference
+```typescript
+// src/lib/sanitize.ts
+import DOMPurify from 'isomorphic-dompurify';
 
-| Directive | Value | Purpose |
-|-----------|-------|---------|
-| `default-src` | `'self'` | Fallback for unspecified directives |
-| `script-src` | `'self' 'nonce-xxx' 'strict-dynamic'` | Allow scripts with nonce only |
-| `style-src` | `'self' 'unsafe-inline'` | Required for CSS-in-JS |
-| `img-src` | `'self' blob: data: https:` | Allow images from HTTPS |
-| `connect-src` | `'self' https://api.clerk.dev` | Whitelist API endpoints |
-| `frame-ancestors` | `'none'` | Prevent clickjacking |
-| `form-action` | `'self'` | Prevent form hijacking |
-| `object-src` | `'none'` | Block plugins |
+export function sanitizeHtml(dirty: string): string {
+  return DOMPurify.sanitize(dirty, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li'],
+    ALLOWED_ATTR: ['href', 'target', 'rel'],
+    ALLOW_DATA_ATTR: false,
+  });
+}
+
+export function stripHtml(dirty: string): string {
+  return DOMPurify.sanitize(dirty, { ALLOWED_TAGS: [] });
+}
+```
+
+### Note on z.any() in Output Schemas
+
+Your output schemas use `z.any()` for OpenAPI documentation:
+
+```typescript
+// vehicles.types.ts
+export const vehicleDetailOutputSchema = z.any();
+```
+
+**This is acceptable** because:
+1. Output schemas don't validate user input
+2. They're only used for OpenAPI spec generation
+3. Input schemas use strict types (which is what matters)
 
 ### Checklist
 
 | Item | Priority | Status |
 |------|----------|--------|
-| Upgrade Next.js to 15.2.3+ (CVE-2025-29927) | Critical | ☐ |
-| Block `x-middleware-subrequest` header | Critical | ☐ |
-| Add security headers in `next.config.ts` | Critical | ☐ |
-| Implement CSP with nonces in middleware | Critical | ☐ |
-| Configure strict CORS with allowed origins | Critical | ☐ |
-| Add `NEXT_PUBLIC_APP_URL` to environment | High | ☐ |
-| Block bypass header at reverse proxy | Medium | ☐ |
-| Test CSP with [CSP Evaluator](https://csp-evaluator.withgoogle.com/) | Medium | ☐ |
-| Enable HSTS preloading | Low | ☐ |
+| All user input validated through Zod | Critical | ✅ Done |
+| No dangerouslySetInnerHTML usage | Critical | ✅ Done |
+| Input schemas use strict types (no z.any()) | Critical | ✅ Done |
+| Install DOMPurify if rich text needed | Low | ☐ Optional |
 
 ---
 
 ## 5. Rate Limiting & DoS Protection
 
-### Threats
+### Current Implementation ✅
 
-| Threat | Description | Risk |
-|--------|-------------|------|
-| **Brute Force** | Password guessing, credential stuffing | Critical |
-| **DDoS** | Overwhelming server with requests | High |
-| **API Abuse** | Data scraping, inventory hoarding | High |
-| **tRPC WebSocket DoS (CVE-2025-43855)** | Server crash via malformed params | High |
-| **Expensive Operation Abuse** | Reports, exports drain resources | Medium |
-
-### Sources
-
-- [Redis Rate Limiting](https://redis.io/glossary/rate-limiting/)
-- [Brute Force Prevention](https://medium.com/@sandunilakshika2026/prevent-brute-force-attacks-in-node-js-using-redis-and-rate-limiter-flexible-d93ecc4235f9)
-
-### Solutions
-
-#### 5.1 Install Rate Limiting Package
-
-```bash
-npm install @upstash/ratelimit @upstash/redis
-```
-
-#### 5.2 Rate Limiter Setup
-
-```typescript
-// src/server/api/common/middlewares/rate-limit.middleware.ts
-import { Ratelimit } from '@upstash/ratelimit';
-import { Redis } from '@upstash/redis';
-import { TRPCError } from '@trpc/server';
-
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
-
-export const rateLimiters = {
-  // Standard API: 100 req / 10 sec
-  standard: new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(100, '10 s'),
-    prefix: 'ratelimit:standard',
-  }),
-
-  // Auth endpoints: 5 req / 1 min (brute force protection)
-  auth: new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(5, '1 m'),
-    prefix: 'ratelimit:auth',
-  }),
-
-  // Sensitive operations: 10 req / 1 min
-  sensitive: new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(10, '1 m'),
-    prefix: 'ratelimit:sensitive',
-  }),
-
-  // Expensive queries: 5 req / 1 min
-  expensive: new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(5, '1 m'),
-    prefix: 'ratelimit:expensive',
-  }),
-
-  // IP-based spam protection: 20 req / 10 sec
-  antiSpam: new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(20, '10 s'),
-    prefix: 'ratelimit:antispam',
-  }),
-};
-
-export type RateLimitType = keyof typeof rateLimiters;
-
-export async function checkRateLimit(
-  identifier: string,
-  type: RateLimitType = 'standard'
-): Promise<void> {
-  const { success, reset } = await rateLimiters[type].limit(identifier);
-
-  if (!success) {
-    const retryAfter = Math.ceil((reset - Date.now()) / 1000);
-    throw new TRPCError({
-      code: 'TOO_MANY_REQUESTS',
-      message: `Rate limit exceeded. Try again in ${retryAfter} seconds.`,
-    });
-  }
-}
-
-export function getRateLimitIdentifier(
-  ip: string | null,
-  userId?: string | null
-): string {
-  return userId ? `user:${userId}` : `ip:${ip ?? 'unknown'}`;
-}
-```
-
-#### 5.3 Rate Limited Procedures
-
-```typescript
-// src/server/api/trpc.ts
-const createRateLimitMiddleware = (type: RateLimitType) => {
-  return t.middleware(async ({ ctx, next }) => {
-    const ip = getClientIp(ctx.headers);
-    const identifier = getRateLimitIdentifier(ip, ctx.session?.userId);
-    await checkRateLimit(identifier, type);
-    return next();
-  });
-};
-
-export const authRateLimitedProcedure = publicProcedure.use(
-  createRateLimitMiddleware('auth')
-);
-
-export const protectedRateLimitedProcedure = protectedProcedure.use(
-  createRateLimitMiddleware('standard')
-);
-
-export const expensiveOperationProcedure = protectedProcedure.use(
-  createRateLimitMiddleware('expensive')
-);
-```
-
-#### 5.4 IP Blocking for Repeat Offenders
-
-```typescript
-// src/server/api/common/middlewares/ip-block.middleware.ts
-const BLOCK_THRESHOLD = 100;
-const BLOCK_DURATION = 60 * 60; // 1 hour
-
-export async function trackViolation(ip: string): Promise<void> {
-  const key = `violations:${ip}`;
-  const violations = await redis.incr(key);
-
-  if (violations === 1) {
-    await redis.expire(key, 600); // 10 min window
-  }
-
-  if (violations >= BLOCK_THRESHOLD) {
-    await redis.setex(`blocked:${ip}`, BLOCK_DURATION, '1');
-  }
-}
-
-export async function isIpBlocked(ip: string): Promise<boolean> {
-  return (await redis.get(`blocked:${ip}`)) === '1';
-}
-```
-
-### Rate Limit Presets Reference
+You have a comprehensive rate limiting system in `src/server/api/common/middlewares/rate-limit.middleware.ts`:
 
 | Preset | Limit | Window | Use Case |
 |--------|-------|--------|----------|
-| `standard` | 100 req | 10 sec | Normal API calls |
-| `auth` | 5 req | 1 min | Login, signup, password reset |
-| `sensitive` | 10 req | 1 min | Delete, role changes |
-| `expensive` | 5 req | 1 min | Reports, exports |
-| `antiSpam` | 20 req | 10 sec | Public endpoints |
+| `AUTH` | 5 req | 1 min | Authentication attempts |
+| `DRIVER_CREATE` | 10 req | 1 hour | Driver creation |
+| `VEHICLE_CREATE` | 10 req | 1 hour | Vehicle creation |
+| `FILE_UPLOAD` | 20 req | 1 hour | File uploads |
+| `INVITATION` | 10 req | 1 hour | Invitation sending |
+| `MUTATION` | 100 req | 1 min | General mutations |
+| `BULK` | 5 req | 1 hour | Bulk operations |
 
 ### Checklist
 
 | Item | Priority | Status |
 |------|----------|--------|
-| Upgrade tRPC to 11.1.1+ (CVE-2025-43855) | Critical | ☐ |
-| Install `@upstash/ratelimit` | Critical | ☐ |
-| Configure Redis connection | Critical | ☐ |
-| Create rate limit middleware | Critical | ☐ |
-| Apply rate limiting to auth endpoints | Critical | ☐ |
-| Apply rate limiting to expensive operations | High | ☐ |
-| Implement IP extraction from headers | High | ☐ |
-| Add graceful degradation for Redis failures | High | ☐ |
-| Implement IP blocking for repeat offenders | Medium | ☐ |
-| Configure CDN/WAF rate limiting | Medium | ☐ |
+| Rate limiting middleware exists | Critical | ✅ Done |
+| Redis connection configured | Critical | ✅ Done |
+| Auth endpoints rate limited | Critical | ✅ Done |
+| Expensive operations rate limited | High | ✅ Done |
+| Graceful degradation on Redis failure | High | ✅ Done |
 
 ---
 
 ## 6. Database & Prisma Security
 
-### Threats
+### Current Protection ✅
 
-| Threat | Description | Risk |
-|--------|-------------|------|
-| **SQL Injection via Raw Queries** | `$queryRawUnsafe` with user input | Critical |
-| **Operator Injection** | Query operators bypass auth | High |
-| **Time-Based ORM Leak** | Data enumeration via timing | Medium |
-| **Mass Assignment** | Extra fields in create/update | High |
-| **Data Exposure** | Returning sensitive fields | High |
+Your repositories follow secure patterns:
 
-### Sources
+1. **Explicit `select` clauses** - Only return needed fields
+2. **Organization scoping** - Queries filtered by `organizationId`
+3. **No `$queryRawUnsafe`** - All queries use Prisma's query builder
+4. **Pagination limits** - Max 100 items per request
 
-- [Prisma SQL Injection](https://www.nodejs-security.com/blog/prisma-raw-query-sql-injection)
-- [Prisma Operator Injection](https://www.aikido.dev/blog/prisma-and-postgresql-vulnerable-to-nosql-injection)
-- [Prisma ORM Timing Attacks](https://www.elttam.com/blog/plorming-your-primsa-orm/)
+### Minor Improvement: Use findUnique Where Possible
 
-### Solutions
-
-#### 6.1 Safe Prisma Query Patterns
+In `vehicles.repository.ts:77`, you use `findFirst`:
 
 ```typescript
-// VULNERABLE - String concatenation
-async function vulnerableSearch(userInput: string) {
-  return db.$queryRawUnsafe(
-    `SELECT * FROM "User" WHERE email LIKE '%${userInput}%'`
-  );
-}
-
-// SAFE - Parameterized query
-async function safeSearch(userInput: string) {
-  return db.$queryRaw`
-    SELECT * FROM "User"
-    WHERE email LIKE ${`%${userInput}%`}
-  `;
-}
-```
-
-#### 6.2 Select/Omit Patterns
-
-```typescript
-// src/server/api/routers/users/users.repository.ts
-export const userPublicSelect = {
-  id: true,
-  email: true,
-  name: true,
-  role: true,
-  status: true,
-  createdAt: true,
-} satisfies Prisma.UserSelect;
-
-// NEVER expose: passwordHash, apiKey, resetToken
-
-export const usersRepository = {
-  findById: async (id: string) => {
-    return db.user.findUnique({
-      where: { id },
-      select: userPublicSelect,
-    });
-  },
-
-  findMany: async (params: { skip?: number; take?: number }) => {
-    return db.user.findMany({
-      select: userPublicSelect,
-      skip: params.skip ?? 0,
-      take: Math.min(params.take ?? 20, 100), // Cap at 100
-    });
-  },
-};
-```
-
-#### 6.3 Prevent Mass Assignment
-
-```typescript
-// Define exactly what fields can be updated
-const updateUserSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  // role - cannot be self-updated
-  // status - cannot be self-updated
+// Current
+return db.vehicle.findFirst({
+  where,
+  select: vehicleDetailSelect,
 });
 
-export async function updateUser(userId: string, input: unknown) {
-  const data = updateUserSchema.parse(input);
-  return db.user.update({
-    where: { id: userId },
-    data,
-    select: userPublicSelect,
-  });
-}
+// Preferred when querying by unique field
+return db.vehicle.findUnique({
+  where: { id: vehicleId },
+  select: vehicleDetailSelect,
+});
 ```
 
-#### 6.4 Pagination Guards
+`findUnique` is slightly faster and clearer about intent. However, your current use is safe because you're filtering by ID.
+
+### Checklist
+
+| Item | Priority | Status |
+|------|----------|--------|
+| Never use `$queryRawUnsafe` with user input | Critical | ✅ Done |
+| Define explicit `select` for all queries | Critical | ✅ Done |
+| Implement pagination with max limits | High | ✅ Done |
+| Scope queries by organizationId | High | ✅ Done |
+| Parse input through Zod before Prisma | High | ✅ Done |
+| Prefer `findUnique` over `findFirst` for ID lookups | Low | ☐ Optional |
+
+---
+
+## 7. Error Handling & Logging
+
+### Current Implementation ✅
+
+Your logging system in `src/server/api/common/logger.ts` includes:
+
+- **Sensitive data redaction** - Emails, tokens, keys automatically redacted
+- **Structured JSON logging** - Production-ready format
+- **Request ID tracking** - Correlate logs across requests
+- **Log level filtering** - Only warn/error in production
+
+### Improvement: Sanitize tRPC Errors in Production
+
+Your current error formatter exposes `zodError` in production:
 
 ```typescript
-// src/server/api/common/utils/pagination.ts
-export const paginationSchema = z.object({
-  page: z.number().int().min(1).default(1),
-  pageSize: z.number().int().min(1).max(100).default(20),
-});
-
-export function toPrismaArgs(pagination: z.infer<typeof paginationSchema>) {
+// Current - src/server/api/trpc.ts
+errorFormatter({ shape, error }) {
   return {
-    skip: (pagination.page - 1) * pagination.pageSize,
-    take: pagination.pageSize,
+    ...shape,
+    data: {
+      ...shape.data,
+      zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
+    },
   };
 }
 ```
 
-#### 6.5 Secure Docker Compose
-
-```yaml
-# docker-compose.yml
-services:
-  postgres:
-    image: postgres:16-alpine
-    ports:
-      - '127.0.0.1:5432:5432'  # Bind to localhost only
-    security_opt:
-      - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - '127.0.0.1:6379:6379'
-    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
-```
-
-#### 6.6 Database User Permissions (Production)
-
-```sql
--- Create application user with minimal permissions
-CREATE ROLE fleet_pulse_app WITH LOGIN PASSWORD 'secure_password';
-
-GRANT CONNECT ON DATABASE fleet_pulse TO fleet_pulse_app;
-GRANT USAGE ON SCHEMA public TO fleet_pulse_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO fleet_pulse_app;
-
--- Prevent schema modifications
-REVOKE CREATE ON SCHEMA public FROM fleet_pulse_app;
-```
-
-### Checklist
-
-| Item | Priority | Status |
-|------|----------|--------|
-| Never use `$queryRawUnsafe` with user input | Critical | ☐ |
-| Validate inputs are primitive types | Critical | ☐ |
-| Use `findUnique` instead of `findFirst` | Critical | ☐ |
-| Define explicit `select` for all queries | Critical | ☐ |
-| Never expose password hashes or tokens | Critical | ☐ |
-| Parse input through Zod before Prisma | High | ☐ |
-| Implement pagination with max page size | High | ☐ |
-| Use SSL for database in production | High | ☐ |
-| Bind database ports to localhost in Docker | High | ☐ |
-| Create app DB user with minimal permissions | High | ☐ |
-
----
-
-## 7. Error Handling & Logging Security
-
-### Threats
-
-| Threat | Description | Risk |
-|--------|-------------|------|
-| **Information Disclosure** | Stack traces reveal internals | High |
-| **Log Injection** | Malicious content in logs | Medium |
-| **Sensitive Data in Logs** | Passwords, tokens logged | Critical |
-| **Missing Security Logging** | No audit trail | Medium |
-
-### Solutions
-
-#### 7.1 Install Logging Package
-
-```bash
-npm install pino pino-pretty
-```
-
-#### 7.2 Secure Logger Setup
+**Recommended change:**
 
 ```typescript
-// src/server/api/common/logger.ts
-import pino from 'pino';
+errorFormatter({ shape, error }) {
+  const isDev = process.env.NODE_ENV === 'development';
 
-const REDACT_PATHS = [
-  'password',
-  'passwordHash',
-  'token',
-  'accessToken',
-  'refreshToken',
-  'apiKey',
-  'secret',
-  'authorization',
-  'cookie',
-];
-
-export const logger = pino({
-  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-  redact: {
-    paths: REDACT_PATHS,
-    censor: '[REDACTED]',
-  },
-  transport:
-    process.env.NODE_ENV === 'development'
-      ? { target: 'pino-pretty', options: { colorize: true } }
-      : undefined,
-});
-```
-
-#### 7.3 Security Event Logger
-
-```typescript
-// src/server/api/common/security-logger.ts
-export type SecurityEventType =
-  | 'AUTH_SUCCESS'
-  | 'AUTH_FAILURE'
-  | 'PERMISSION_DENIED'
-  | 'RATE_LIMIT_EXCEEDED'
-  | 'SUSPICIOUS_ACTIVITY'
-  | 'ADMIN_ACTION';
-
-export function logSecurityEvent(event: {
-  type: SecurityEventType;
-  userId?: string | null;
-  ip?: string | null;
-  details?: Record<string, unknown>;
-}): void {
-  const criticalEvents = ['PERMISSION_DENIED', 'SUSPICIOUS_ACTIVITY'];
-  const method = criticalEvents.includes(event.type) ? 'error' : 'info';
-
-  logger[method]({ event: event.type, ...event });
-}
-```
-
-#### 7.4 Safe Error Handling
-
-```typescript
-// src/server/api/common/utils/error-handler.ts
-const SAFE_ERROR_MESSAGES: Record<string, string> = {
-  P2002: 'A record with this value already exists',
-  P2025: 'Record not found',
-  DATABASE_ERROR: 'A database error occurred',
-  INTERNAL_ERROR: 'An unexpected error occurred',
-};
-
-export function toSafeTRPCError(error: unknown): TRPCError {
-  if (error instanceof PrismaClientKnownRequestError) {
-    const safeMessage = SAFE_ERROR_MESSAGES[error.code] ?? SAFE_ERROR_MESSAGES.DATABASE_ERROR;
-
-    logger.error({ type: 'prisma_error', code: error.code });
-
-    return new TRPCError({
-      code: error.code === 'P2025' ? 'NOT_FOUND' : 'INTERNAL_SERVER_ERROR',
-      message: safeMessage,
-    });
-  }
-
-  return new TRPCError({
-    code: 'INTERNAL_SERVER_ERROR',
-    message: SAFE_ERROR_MESSAGES.INTERNAL_ERROR,
-  });
-}
-```
-
-#### 7.5 tRPC Error Formatter
-
-```typescript
-// src/server/api/trpc.ts
-const t = initTRPC.context<typeof createTRPCContext>().create({
-  errorFormatter({ shape, error, ctx }) {
-    logger.error({
-      type: 'trpc_error',
-      code: error.code,
-      path: shape.data?.path,
-      userId: ctx?.session?.userId,
-    });
-
-    return {
-      ...shape,
-      data: {
-        ...shape.data,
-        zodError: process.env.NODE_ENV === 'development'
-          ? error.cause instanceof ZodError ? error.cause.flatten() : null
-          : null,
-        stack: undefined, // Never expose stack traces
-      },
-      message: process.env.NODE_ENV === 'production' && error.code === 'INTERNAL_SERVER_ERROR'
-        ? 'An unexpected error occurred'
-        : shape.message,
-    };
-  },
-});
-```
-
-#### 7.6 Log Injection Prevention
-
-```typescript
-// src/server/api/common/utils/log-sanitize.ts
-export function sanitizeForLog(input: string, maxLength = 200): string {
-  return input
-    .replace(/[\r\n]/g, ' ')       // Remove newlines
-    .replace(/\x1b\[[0-9;]*m/g, '') // Remove ANSI codes
-    .replace(/[\x00-\x1f\x7f]/g, '') // Remove control chars
-    .slice(0, maxLength);
+  return {
+    ...shape,
+    data: {
+      ...shape.data,
+      // Only expose Zod errors in development
+      zodError: isDev && error.cause instanceof ZodError
+        ? error.cause.flatten()
+        : null,
+      // Never expose stack traces
+      stack: undefined,
+    },
+    // Generic message for internal errors in production
+    message: !isDev && error.code === 'INTERNAL_SERVER_ERROR'
+      ? 'An unexpected error occurred'
+      : shape.message,
+  };
 }
 ```
 
@@ -1059,87 +443,36 @@ export function sanitizeForLog(input: string, maxLength = 200): string {
 
 | Item | Priority | Status |
 |------|----------|--------|
-| Install Pino logger with redaction | Critical | ☐ |
-| Create security event logger | Critical | ☐ |
-| Sanitize TRPCError messages in production | Critical | ☐ |
-| Remove stack traces from responses | Critical | ☐ |
-| Configure tRPC error formatter | Critical | ☐ |
-| Log authentication failures | High | ☐ |
-| Log rate limit violations | High | ☐ |
-| Implement log injection prevention | High | ☐ |
-| Create audit logger for sensitive ops | High | ☐ |
+| Logger with sensitive data redaction | Critical | ✅ Done |
+| Request ID tracking | High | ✅ Done |
+| Hide zodError in production | High | ☐ |
+| Hide stack traces in production | High | ☐ |
+| Generic message for INTERNAL_SERVER_ERROR | Medium | ☐ |
 
 ---
 
-## 8. Dependency & Supply Chain Security
+## 8. CI/CD Security
 
-### Threats
+### Missing Items
 
-| Threat | Description | Risk |
-|--------|-------------|------|
-| **Known CVEs** | Outdated packages with vulnerabilities | Critical |
-| **Supply Chain Attacks** | Compromised npm packages | Critical |
-| **Typosquatting** | Malicious lookalike packages | High |
-| **Lockfile Injection** | Modified package-lock.json | High |
+Your project doesn't have:
+- `.npmrc` for npm security settings
+- `.github/dependabot.yml` for automated updates
+- `.github/workflows/security.yml` for security checks
 
-### Sources
+### Solution: Add Security Files
 
-- [React Supply Chain Attacks](https://www.webpronews.com/react-vulnerabilities-supply-chain-attacks-bypassing-xss-protections/)
-- [npm Security Best Practices](https://docs.npmjs.com/security-best-practices)
+**1. Create `.npmrc`:**
 
-### Solutions
-
-#### 8.1 Package.json Security Scripts
-
-```json
-{
-  "scripts": {
-    "audit": "npm audit --audit-level=high",
-    "audit:fix": "npm audit fix",
-    "audit:prod": "npm audit --omit=dev --audit-level=high",
-    "check:deps": "npx depcheck",
-    "check:outdated": "npm outdated"
-  }
-}
+```ini
+# .npmrc
+package-lock=true
+audit-level=high
+save-exact=true
+registry=https://registry.npmjs.org/
 ```
 
-#### 8.2 GitHub Actions Security Workflow
-
-```yaml
-# .github/workflows/security.yml
-name: Security Checks
-
-on:
-  push:
-    branches: [main]
-  schedule:
-    - cron: '0 0 * * *'
-
-jobs:
-  dependency-audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - run: npm ci
-      - run: npm audit --audit-level=high
-
-  lockfile-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: |
-          npx lockfile-lint \
-            --path package-lock.json \
-            --type npm \
-            --validate-https \
-            --allowed-hosts npm \
-            --validate-integrity
-```
-
-#### 8.3 Dependabot Configuration
+**2. Create `.github/dependabot.yml`:**
 
 ```yaml
 # .github/dependabot.yml
@@ -1154,63 +487,52 @@ updates:
       production-dependencies:
         dependency-type: 'production'
         update-types: ['minor', 'patch']
+      development-dependencies:
+        dependency-type: 'development'
+        update-types: ['minor', 'patch']
 ```
 
-#### 8.4 NPM Configuration
+**3. Create `.github/workflows/security.yml`:**
 
-```ini
-# .npmrc
-package-lock=true
-audit-level=high
-save-exact=true
-ignore-scripts=true
-registry=https://registry.npmjs.org/
+```yaml
+# .github/workflows/security.yml
+name: Security Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * 1' # Weekly on Monday
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm audit --audit-level=high
+        continue-on-error: true # Don't fail build, but report
+
+  lockfile-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx lockfile-lint --path package-lock.json --type npm --validate-https --allowed-hosts npm --validate-integrity
 ```
 
-#### 8.5 Secure Dockerfile
+**4. Add scripts to `package.json`:**
 
-```dockerfile
-FROM node:20.11.0-alpine AS base
-
-# Run as non-root
-RUN addgroup --system nodejs && adduser --system nextjs
-
-# Install security updates
-RUN apk update && apk upgrade --no-cache
-
-FROM base AS deps
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --only=production --ignore-scripts
-
-FROM base AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-USER nextjs
-
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
-# ... rest of build
-
-CMD ["node", "server.js"]
-```
-
-#### 8.6 Runtime Version Verification
-
-```typescript
-// src/server/verify-deps.ts
-export function verifyDependencies(): void {
-  const criticalDeps = [
-    { name: 'react', minVersion: '19.0.3' },
-    { name: 'next', minVersion: '15.2.3' },
-    { name: '@trpc/server', minVersion: '11.1.1' },
-  ];
-
-  for (const dep of criticalDeps) {
-    const pkg = require(`${dep.name}/package.json`);
-    if (compareVersions(pkg.version, dep.minVersion) < 0) {
-      console.error(`SECURITY: ${dep.name}@${pkg.version} < ${dep.minVersion}`);
-      if (process.env.NODE_ENV === 'production') process.exit(1);
-    }
+```json
+{
+  "scripts": {
+    "audit": "npm audit --audit-level=high",
+    "audit:fix": "npm audit fix"
   }
 }
 ```
@@ -1219,75 +541,54 @@ export function verifyDependencies(): void {
 
 | Item | Priority | Status |
 |------|----------|--------|
-| Upgrade React to 19.0.3+ | Critical | ☐ |
-| Upgrade Next.js to 15.2.3+ | Critical | ☐ |
-| Upgrade tRPC to 11.1.1+ | Critical | ☐ |
 | Run `npm audit` and fix vulnerabilities | Critical | ☐ |
+| Create `.npmrc` with security settings | High | ☐ |
 | Set up Dependabot | High | ☐ |
 | Create GitHub Actions security workflow | High | ☐ |
-| Configure lockfile-lint in CI | High | ☐ |
-| Use exact versions (`save-exact=true`) | High | ☐ |
-| Create secure Dockerfile | Medium | ☐ |
-| Verify critical versions at runtime | Medium | ☐ |
+| Add audit scripts to package.json | Medium | ☐ |
 
 ---
 
 ## 9. Quick Reference Checklist
 
-### Critical Priority (Do First)
+### Critical Priority
 
-| # | Item | Section |
-|---|------|---------|
-| 1 | Upgrade React to 19.0.3+ | CVEs |
-| 2 | Upgrade Next.js to 15.2.3+ | CVEs |
-| 3 | Upgrade tRPC to 11.1.1+ | CVEs |
-| 4 | Block `x-middleware-subrequest` header | Headers |
-| 5 | Implement rate limiting on auth endpoints | Rate Limiting |
-| 6 | Add CSP headers | Headers |
-| 7 | Install DOMPurify and sanitize inputs | XSS |
-| 8 | Configure CORS with allowed origins | Headers |
-| 9 | Implement webhook signature validation | Auth |
-| 10 | Never use `$queryRawUnsafe` with user input | Database |
-| 11 | Remove stack traces from production errors | Logging |
-| 12 | Run `npm audit` and fix vulnerabilities | Dependencies |
+| # | Item | Status |
+|---|------|--------|
+| 1 | Add security headers in `next.config.ts` | ☐ |
+| 2 | Configure CORS for tRPC endpoints | ☐ |
+| 3 | Sanitize tRPC errors in production | ☐ |
+| 4 | Run `npm audit` and fix vulnerabilities | ☐ |
 
-### High Priority (Do Soon)
+### High Priority
 
-| # | Item | Section |
-|---|------|---------|
-| 13 | Define explicit `select` for all Prisma queries | Database |
-| 14 | Validate inputs are primitive types | XSS |
-| 15 | Add security headers in next.config.ts | Headers |
-| 16 | Log authentication failures | Logging |
-| 17 | Set up Dependabot | Dependencies |
-| 18 | Implement pagination with max limits | Database |
-| 19 | Parse all input through Zod | XSS |
-| 20 | Create security event logger | Logging |
+| # | Item | Status |
+|---|------|--------|
+| 5 | Set up Dependabot | ☐ |
+| 6 | Create GitHub Actions security workflow | ☐ |
+| 7 | Create `.npmrc` with security settings | ☐ |
+| 8 | Add Content-Security-Policy header | ☐ |
 
-### Medium Priority (Plan For)
+### Already Complete ✅
 
-| # | Item | Section |
-|---|------|---------|
-| 21 | Implement IP blocking for repeat offenders | Rate Limiting |
-| 22 | Set up audit logging | Logging |
-| 23 | Create secure Dockerfile | Dependencies |
-| 24 | Test CSP with evaluator tools | Headers |
-| 25 | Configure log rotation | Logging |
+| # | Item | Status |
+|---|------|--------|
+| 9 | Rate limiting with Redis | ✅ |
+| 10 | Logging with sensitive data redaction | ✅ |
+| 11 | Zod input validation on all endpoints | ✅ |
+| 12 | Explicit Prisma select clauses | ✅ |
+| 13 | Organization-scoped queries | ✅ |
+| 14 | Non-root Docker user | ✅ |
+| 15 | Package versions above CVE thresholds | ✅ |
 
-### Environment Variables Required
+### Environment Variables
 
 ```env
-# Authentication
+# Required (already configured)
 CLERK_SECRET_KEY=
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
-CLERK_WEBHOOK_SECRET=
-
-# Database
 DATABASE_URL=postgresql://...?sslmode=require
-
-# Redis (Rate Limiting)
-UPSTASH_REDIS_REST_URL=
-UPSTASH_REDIS_REST_TOKEN=
+REDIS_URL=
 
 # Application
 NEXT_PUBLIC_APP_URL=https://your-domain.com
@@ -1299,24 +600,16 @@ NODE_ENV=production
 ## Sources & References
 
 ### Official Documentation
-- [Next.js Security](https://nextjs.org/docs/pages/guides/content-security-policy)
+- [Next.js Security Headers](https://nextjs.org/docs/pages/api-reference/next-config-js/headers)
 - [Clerk Security](https://clerk.com/docs/security/overview)
 - [tRPC Security](https://trpc.io/docs/server/security)
 - [Prisma Security](https://www.prisma.io/docs/concepts/components/prisma-client/raw-database-access)
 
-### Vulnerability Databases
-- [React Security Blog](https://react.dev/blog)
-- [Next.js Security Advisories](https://nextjs.org/blog)
-- [tRPC Security Advisories](https://github.com/trpc/trpc/security/advisories)
-- [Snyk Vulnerability Database](https://security.snyk.io/)
-
 ### Security Research
-- [Prisma NoSQL Injection - Aikido](https://www.aikido.dev/blog/prisma-and-postgresql-vulnerable-to-nosql-injection)
-- [tRPC Security Research - Medium](https://medium.com/@LogicalHunter/trpc-security-research-hunting-for-vulnerabilities-in-modern-apis-b0d38e06fa71)
-- [Next.js Middleware Bypass - ProjectDiscovery](https://projectdiscovery.io/blog/nextjs-middleware-authorization-bypass)
-- [React2Shell - Microsoft](https://www.microsoft.com/en-us/security/blog/2025/12/15/defending-against-the-cve-2025-55182-react2shell-vulnerability-in-react-server-components/)
+- [Prisma NoSQL-style Injection](https://www.aikido.dev/blog/prisma-and-postgresql-vulnerable-to-nosql-injection)
+- [tRPC Security Research](https://medium.com/@LogicalHunter/trpc-security-research-hunting-for-vulnerabilities-in-modern-apis-b0d38e06fa71)
 
 ---
 
-*Last Updated: December 2025*
-*Template Version: 1.0.0*
+*Last Updated: January 2026*
+*Tailored for Fleet Pulse architecture (CSR + tRPC)*

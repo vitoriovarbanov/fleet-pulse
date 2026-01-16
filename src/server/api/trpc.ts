@@ -50,12 +50,22 @@ const t = initTRPC
     .create({
         transformer: superjson,
         errorFormatter({ shape, error }) {
+            const isDev = process.env.NODE_ENV === "development";
+
             return {
                 ...shape,
                 data: {
                     ...shape.data,
-                    zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
+                    // Only expose Zod validation errors in development
+                    zodError: isDev && error.cause instanceof ZodError ? error.cause.flatten() : null,
+                    // Never expose stack traces
+                    stack: undefined,
                 },
+                // Generic message for internal errors in production
+                message:
+                    !isDev && error.code === "INTERNAL_SERVER_ERROR"
+                        ? "An unexpected error occurred"
+                        : shape.message,
             };
         },
     });
