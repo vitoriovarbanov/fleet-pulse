@@ -6,6 +6,11 @@ import { defineConfig } from "prisma/config";
 // Load .env.development for local development
 config({ path: ".env.development" });
 
+// Fallback URL for CI (prisma generate only needs a valid URL format, not a real connection)
+const databaseUrl =
+  process.env["DATABASE_URL"] ||
+  "postgresql://placeholder:placeholder@localhost:5432/placeholder";
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
@@ -13,6 +18,6 @@ export default defineConfig({
     seed: "npx tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: databaseUrl,
   },
 });
