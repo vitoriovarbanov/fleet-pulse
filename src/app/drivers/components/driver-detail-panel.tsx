@@ -207,7 +207,7 @@ export function DriverDetailPanel({
                         <InfoItem
                           icon={Building}
                           label="Country"
-                          value={driver.country}
+                          value={driver.country ?? ''}
                         />
                       </InfoGrid>
                     </Section>

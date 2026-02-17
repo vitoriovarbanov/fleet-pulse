@@ -23,7 +23,7 @@ export const env = createEnv({
    * Must be prefixed with `NEXT_PUBLIC_` to be exposed to the client.
    */
   client: {
-    NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3005"),
+    NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1),
     NEXT_PUBLIC_CLERK_SIGN_IN_URL: z.string().default("/sign-in"),
     NEXT_PUBLIC_CLERK_SIGN_UP_URL: z.string().default("/sign-up"),

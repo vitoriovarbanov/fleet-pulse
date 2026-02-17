@@ -111,7 +111,6 @@ export async function createDriver(
 
     // Create driver in database
     const driver = await repository.createDriver(input, organizationId);
-    log.info('Driver created', { driverId: driver.id });
 
     // Send Clerk invitation if requested
     if (input.sendInvitation) {

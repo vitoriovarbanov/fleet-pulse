@@ -33,7 +33,8 @@ export function useCreateVehicle(options?: UseCreateVehicleOptions) {
       const previousVehicles = utils.vehicles.list.getData({ limit: 50 });
 
       // Optimistically add vehicle to the list
-      utils.vehicles.list.setData({ limit: 50 }, (old) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      utils.vehicles.list.setData({ limit: 50 }, (old: any) => {
         if (!old) return old;
 
         const optimisticVehicle: (typeof old.vehicles)[number] = {
@@ -106,12 +107,13 @@ export function useUpdateVehicle(options?: UseUpdateVehicleOptions) {
       const previousDetail = utils.vehicles.getById.getData({ vehicleId });
 
       // Optimistically update the list
-      utils.vehicles.list.setData({ limit: 50 }, (old) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      utils.vehicles.list.setData({ limit: 50 }, (old: any) => {
         if (!old) return old;
 
         return {
           ...old,
-          vehicles: old.vehicles.map((vehicle) => {
+          vehicles: old.vehicles.map((vehicle: any) => {
             if (vehicle.id !== vehicleId) return vehicle;
 
             return {
@@ -133,7 +135,8 @@ export function useUpdateVehicle(options?: UseUpdateVehicleOptions) {
 
       // Optimistically update detail view if it's cached
       if (previousDetail) {
-        utils.vehicles.getById.setData({ vehicleId }, (old) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        utils.vehicles.getById.setData({ vehicleId }, (old: any) => {
           if (!old) return old;
 
           return {
@@ -207,12 +210,13 @@ export function useDeleteVehicle(options?: UseDeleteVehicleOptions) {
       const previousVehicles = utils.vehicles.list.getData({ limit: 50 });
 
       // Optimistically mark as OUT_OF_SERVICE in the list
-      utils.vehicles.list.setData({ limit: 50 }, (old) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      utils.vehicles.list.setData({ limit: 50 }, (old: any) => {
         if (!old) return old;
 
         return {
           ...old,
-          vehicles: old.vehicles.map((vehicle) =>
+          vehicles: old.vehicles.map((vehicle: any) =>
             vehicle.id === vehicleId
               ? { ...vehicle, status: "OUT_OF_SERVICE" as const }
               : vehicle
@@ -331,12 +335,13 @@ export function useChangeStatus(options?: UseChangeStatusOptions) {
       const previousDetail = utils.vehicles.getById.getData({ vehicleId });
 
       // Optimistically update the list
-      utils.vehicles.list.setData({ limit: 50 }, (old) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      utils.vehicles.list.setData({ limit: 50 }, (old: any) => {
         if (!old) return old;
 
         return {
           ...old,
-          vehicles: old.vehicles.map((vehicle) =>
+          vehicles: old.vehicles.map((vehicle: any) =>
             vehicle.id === vehicleId ? { ...vehicle, status } : vehicle
           ),
         };
@@ -344,7 +349,8 @@ export function useChangeStatus(options?: UseChangeStatusOptions) {
 
       // Optimistically update detail view
       if (previousDetail) {
-        utils.vehicles.getById.setData({ vehicleId }, (old) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        utils.vehicles.getById.setData({ vehicleId }, (old: any) =>
           old ? { ...old, status } : old
         );
       }

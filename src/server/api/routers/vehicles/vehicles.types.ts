@@ -158,8 +158,4 @@ export const statisticsOutputSchema = z.object({
 
 export const listWithLocationOutputSchema = z.array(z.any());
 
-export const saleVehicleOutputSchema = z.object({
-  success: z.boolean(),
-  vehicle: z.any().nullable(),
-  message: z.string(),
-});
+export const saleVehicleOutputSchema = z.any().nullable();

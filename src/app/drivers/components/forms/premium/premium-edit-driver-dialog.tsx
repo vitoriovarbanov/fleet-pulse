@@ -28,6 +28,7 @@ import {
   updateDriverFormSchema,
   getUpdateDriverDefaultValues,
   type UpdateDriverFormValues,
+  type EuLicenseCategory,
 } from "../driver-form.types";
 
 type PremiumEditDriverDialogProps = {
@@ -86,7 +87,7 @@ export function PremiumEditDriverDialog({
         licenseExpiryDate: driver.driverProfile?.licenseExpiryDate
           ? new Date(driver.driverProfile.licenseExpiryDate)
           : undefined,
-        licenseCategories: driver.driverProfile?.licenseCategories ?? [],
+        licenseCategories: (driver.driverProfile?.licenseCategories ?? []) as EuLicenseCategory[],
         medicalCertIssueDate: driver.driverProfile?.medicalCertIssueDate
           ? new Date(driver.driverProfile.medicalCertIssueDate)
           : null,
