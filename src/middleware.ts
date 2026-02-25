@@ -8,12 +8,15 @@ const isPublicRoute = createRouteMatcher([
   "/api/trpc(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
-  // Protect all routes except public ones
-  if (!isPublicRoute(request)) {
-    await auth.protect();
-  }
-});
+export default clerkMiddleware(
+  async (auth, request) => {
+    // Protect all routes except public ones
+    if (!isPublicRoute(request)) {
+      await auth.protect();
+    }
+  },
+  { authorizedParties: ['https://fleetpulse.space'] }
+);
 
 export const config = {
   matcher: [

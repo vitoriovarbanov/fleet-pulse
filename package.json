@@ -10,7 +10,8 @@
     "audit": "npm audit --audit-level=high",
     "audit:fix": "npm audit fix",
     "db:clone-prod": "./scripts/clone-prod-db.sh",
-    "db:connect-prod-copy": "psql postgresql://postgres:postgres@localhost:5433/fleet_pulse_prod_copy"
+    "db:connect-prod-copy": "psql postgresql://postgres:postgres@localhost:5433/fleet_pulse_prod_copy",
+    "db:seed-test-org": "npx tsx prisma/seed-test-org.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",

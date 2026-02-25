@@ -3,7 +3,7 @@
 import type { AppRouter } from '@/server/api/root';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { httpBatchLink, loggerLink, TRPCClientError } from '@trpc/client';
+import { httpLink, loggerLink, TRPCClientError } from '@trpc/client';
 import { createTRPCReact } from '@trpc/react-query';
 import { useAuth } from '@clerk/nextjs';
 import React, { useEffect, useRef } from 'react';
@@ -64,6 +64,8 @@ export function TRPCReactProvider({ children }: TRPCReactProviderProps) {
                         },
                         // Data considered fresh for 30 seconds
                         staleTime: 30 * 1000,
+                        // Don't refetch on window focus
+                        refetchOnWindowFocus: false,
                     },
                 },
             }),
@@ -80,8 +82,8 @@ export function TRPCReactProvider({ children }: TRPCReactProviderProps) {
                             process.env.NODE_ENV === 'development' ||
                             (op.direction === 'down' && op.result instanceof Error),
                     }),
-                    // HTTP batch link - batches multiple requests into one
-                    httpBatchLink({
+                    // HTTP link - individual requests (batching disabled)
+                    httpLink({
                         url: '/api/trpc',
                         transformer,
                     }),

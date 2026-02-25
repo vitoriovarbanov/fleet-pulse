@@ -13,7 +13,7 @@ export function useDashboardData() {
     error,
     refetch,
   } = api.vehicles.listWithLocation.useQuery(undefined, {
-    refetchInterval: POLLING_INTERVAL,
+    refetchInterval: (query) => (query.state.error ? false : POLLING_INTERVAL),
     staleTime: STALE_TIME,
     // Keep previous data while fetching new data
     placeholderData: (previousData) => previousData,

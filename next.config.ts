@@ -36,12 +36,13 @@ const securityHeaders = [
         key: 'Content-Security-Policy',
         value: [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.clerk.accounts.dev", // Required for Next.js + Clerk
+            "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.clerk.accounts.dev https://clerk.fleetpulse.space https://accounts.fleetpulse.space https://challenges.cloudflare.com", // Required for Next.js + Clerk + Turnstile
             "style-src 'self' 'unsafe-inline'", // Required for Tailwind
             "img-src 'self' blob: data: https:",
             "font-src 'self' data:",
-            "connect-src 'self' https://api.clerk.dev https://*.clerk.accounts.dev https://api.maptiler.com",
+            "connect-src 'self' https://api.clerk.dev https://*.clerk.accounts.dev https://clerk.fleetpulse.space https://accounts.fleetpulse.space https://api.clerk.com https://api.maptiler.com",
             "worker-src 'self' blob:", // Required for Clerk
+            "frame-src 'self' https://challenges.cloudflare.com", // Required for Turnstile
             "frame-ancestors 'none'",
             "form-action 'self'",
             "base-uri 'self'",
