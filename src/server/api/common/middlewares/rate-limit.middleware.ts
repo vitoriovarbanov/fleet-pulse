@@ -193,4 +193,12 @@ export const RateLimits = {
         windowType: "hours" as const,
         identifier: "bulk",
     },
+
+    /** Organization creation: 5 per hour */
+    ORGANIZATION_CREATE: {
+        max: 5,
+        window: 1,
+        windowType: "hours" as const,
+        identifier: "organizations:create",
+    },
 } satisfies Record<string, Omit<RateLimitConfig, "enabled">>;

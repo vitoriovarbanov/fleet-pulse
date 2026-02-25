@@ -9,6 +9,7 @@ import {
   Settings,
   X,
   Users,
+  Building2,
   ChevronLeft,
   type LucideIcon,
 } from "lucide-react";
@@ -43,6 +44,13 @@ const navItems: NavItem[] = [
     href: "/dashboard",
     icon: LayoutDashboard,
     description: "Overview & analytics",
+  },
+  {
+    label: "Organizations",
+    href: "/organizations",
+    icon: Building2,
+    description: "Manage organizations",
+    roles: ["ADMIN"],
   },
   {
     label: "Drivers",

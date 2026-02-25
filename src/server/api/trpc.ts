@@ -208,6 +208,50 @@ const enforceUserIsAdmin = t.middleware(async ({ ctx, next }) => {
 export const adminProcedure = t.procedure.use(loggingMiddleware).use(enforceUserIsAdmin);
 
 /**
+ * Super admin procedure middleware
+ * Requires user to have ADMIN role only (not FLEET_MANAGER)
+ */
+const enforceSuperAdmin = t.middleware(async ({ ctx, next }) => {
+    if (!ctx.clerkUserId) {
+        ctx.logger.warn("Unauthenticated super admin request rejected");
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+    }
+
+    // Lazy sync: fetch existing user or create from Clerk data
+    const dbUser = await syncUserToDatabase(ctx.clerkUserId, ctx.logger);
+
+    if (dbUser.role !== "ADMIN") {
+        ctx.logger.warn("Insufficient permissions for super admin route", {
+            userId: dbUser.id,
+            role: dbUser.role,
+        });
+        throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Super admin access required",
+        });
+    }
+
+    ctx.logger.debug("Super admin user authenticated", {
+        userId: dbUser.id,
+        role: dbUser.role,
+    });
+
+    return next({
+        ctx: {
+            ...ctx,
+            user: dbUser,
+            organizationId: dbUser.organizationId,
+        },
+    });
+});
+
+/**
+ * Super admin procedure
+ * Requires ADMIN role only (not FLEET_MANAGER)
+ */
+export const superAdminProcedure = t.procedure.use(loggingMiddleware).use(enforceSuperAdmin);
+
+/**
  * Rate limit middleware factory
  * Creates a middleware that checks rate limits before proceeding
  */
@@ -267,4 +311,26 @@ export const adminRateLimitedProcedure = (config: RateLimitConfig) =>
     t.procedure
         .use(loggingMiddleware)
         .use(enforceUserIsAdmin)
+        .use(createRateLimitMiddleware(config));
+
+/**
+ * Super admin procedure with rate limiting
+ * Requires ADMIN role only and enforces rate limits
+ *
+ * @param config - Rate limit configuration
+ * @returns A procedure builder with rate limiting applied
+ *
+ * @example
+ * ```ts
+ * import { RateLimits } from "@/server/api/common/middlewares/rate-limit.middleware";
+ *
+ * create: superAdminRateLimitedProcedure(RateLimits.ORGANIZATION_CREATE)
+ *     .input(createOrganizationInputSchema)
+ *     .mutation(async ({ ctx, input }) => { ... })
+ * ```
+ */
+export const superAdminRateLimitedProcedure = (config: RateLimitConfig) =>
+    t.procedure
+        .use(loggingMiddleware)
+        .use(enforceSuperAdmin)
         .use(createRateLimitMiddleware(config));

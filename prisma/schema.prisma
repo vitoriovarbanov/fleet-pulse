@@ -22,6 +22,7 @@ enum UserRole {
 }
 
 enum UserStatus {
+  PENDING   // Awaiting invitation acceptance
   ACTIVE
   INACTIVE
 }

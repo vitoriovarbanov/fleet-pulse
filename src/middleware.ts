@@ -15,7 +15,7 @@ export default clerkMiddleware(
       await auth.protect();
     }
   },
-  { authorizedParties: ['https://fleetpulse.space'] }
+  { authorizedParties: ['https://fleetpulse.space', 'http://localhost:3000'] }
 );
 
 export const config = {

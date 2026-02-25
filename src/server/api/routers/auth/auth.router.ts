@@ -12,7 +12,7 @@ const meOutputSchema = z.object({
     lastName: z.string().nullable(),
     avatarUrl: z.string().nullable(),
     role: z.enum(["ADMIN", "FLEET_MANAGER", "DISPATCHER", "DRIVER"]),
-    status: z.enum(["ACTIVE", "INACTIVE"]),
+    status: z.enum(["PENDING", "ACTIVE", "INACTIVE"]),
     organization: z.object({
         id: z.string(),
         name: z.string(),

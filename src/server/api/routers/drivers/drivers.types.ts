@@ -137,7 +137,7 @@ export const assignVehicleInputSchema = z.object({
 // OUTPUT SCHEMAS (for OpenAPI documentation)
 // ============================================
 
-const userStatusSchema = z.enum(["ACTIVE", "INACTIVE"]);
+const userStatusSchema = z.enum(["PENDING", "ACTIVE", "INACTIVE"]);
 
 const vehicleBasicSchema = z.object({
   id: z.string(),

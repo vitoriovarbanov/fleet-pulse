@@ -70,14 +70,20 @@ export async function syncUserToDatabase(clerkUserId: string, logger?: Logger): 
     if (existingUserByEmail) {
         log.info("Linking existing user to Clerk account", {
             userId: existingUserByEmail.id,
+            previousStatus: existingUserByEmail.status,
         });
 
         // Link existing user to Clerk account by updating clerkId
+        // Also activate the user if they were in PENDING status (invited via org creation)
         const linkedUser = await db.user.update({
             where: { id: existingUserByEmail.id },
             data: {
                 clerkId: clerkUserId,
                 avatarUrl: clerkUser.imageUrl ?? existingUserByEmail.avatarUrl,
+                // Activate PENDING users when they complete sign-up
+                status: existingUserByEmail.status === UserStatus.PENDING
+                    ? UserStatus.ACTIVE
+                    : existingUserByEmail.status,
             },
             include: {
                 organization: true,
@@ -86,7 +92,10 @@ export async function syncUserToDatabase(clerkUserId: string, logger?: Logger): 
             },
         });
 
-        log.info("User linked successfully", { userId: linkedUser.id });
+        log.info("User linked successfully", {
+            userId: linkedUser.id,
+            newStatus: linkedUser.status,
+        });
         return linkedUser;
     }
 

@@ -4,6 +4,7 @@ import { authRouter } from "./routers/auth/auth.router";
 import { driversRouter } from "./routers/drivers/drivers.router";
 import { filesRouter } from "./routers/files/files.router";
 import { vehiclesRouter } from "./routers/vehicles/vehicles.router";
+import { organizationsRouter } from "./routers/organizations/organizations.router";
 
 /**
  * Primary router for the server
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
   drivers: driversRouter,
   files: filesRouter,
   vehicles: vehiclesRouter,
+  organizations: organizationsRouter,
 });
 
 /**

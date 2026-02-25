@@ -11,7 +11,7 @@ type AuthUser = {
     lastName: string | null;
     avatarUrl: string | null;
     role: "ADMIN" | "DISPATCHER" | "DRIVER" | "FLEET_MANAGER";
-    status: "ACTIVE" | "INACTIVE";
+    status: "PENDING" | "ACTIVE" | "INACTIVE";
     organization: {
         id: string;
         name: string;
