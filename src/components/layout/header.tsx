@@ -1,6 +1,5 @@
 'use client';
 
-import { ThemeToggle } from '@/components/shared/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Bell, Menu } from 'lucide-react';
@@ -67,9 +66,6 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                     {/* Divider */}
                     <div className="mx-1 hidden h-6 w-px bg-border/50 sm:block" />
-
-                    {/* Theme toggle */}
-                    <ThemeToggle />
 
                     {/* User menu */}
                     <UserMenu />

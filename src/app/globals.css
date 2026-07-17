@@ -486,6 +486,67 @@ body {
   color: var(--primary) !important;
 }
 
+/* Landing page — staggered entrance */
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.landing-rise {
+  opacity: 0;
+  animation: landing-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Landing page — telemetry route flow */
+@keyframes route-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.route-flow {
+  stroke-dasharray: 2 10;
+  animation: route-flow 1.6s linear infinite;
+}
+
+/* Landing page — vehicle marker radar ping */
+@keyframes radar-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+
+.radar-ping {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: radar-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Landing page — live status dot */
+@keyframes live-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.live-blink {
+  animation: live-blink 1.8s ease-in-out infinite;
+}
+
 /* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
   *,
